@@ -172,12 +172,12 @@ When PUB-DIR is set, use this as the publishing directory."
 			       feed-map-entries))
 	;; maybe add author
 	(when body-only
-	 (setq entries (mapcar '(lambda (e)
-				  (append
-				   (unless (assoc 'author e)
-				     (list (list 'author author)))
-				   e)
-				  ))))
+	  (setq entries (mapcar '(lambda (e)
+				   (append
+				    (unless (assoc 'author e)
+				      (list (list 'author author)))
+				    e)
+				   ))))
 	(setq feed
 	      (if body-only
 		  (mapconcat 'atom-syndication-element-entry entries "\n")
@@ -186,20 +186,20 @@ When PUB-DIR is set, use this as the publishing directory."
 		  (unless (string= description "")
 		    (list (list 'subtitle (org-trim description))))
 		  (list
-		   (list 'title (org-trim feed-title))
-		   (list 'generator
+		   (list 'title nil (org-trim feed-title))
+		   (list 'generator nil
 			 org-atom-generator-name
 			 org-atom-generator-version)
-		   (list 'id (concat
-			      (if (and org-atom-prefer-urn-uuid
-				       (org-atom-looks-like-uuid-p feed-id))
-				  "urn:uuid:" "") feed-id))
-		   (list 'updated (if (buffer-file-name)
-				      (nth 5 (file-attributes
-					      (buffer-file-name)))
-				      (current-time)))
-		   (list 'link feed-url nil "self")
-		   (list 'author author))
+		   (list 'id nil (concat
+				  (if (and org-atom-prefer-urn-uuid
+					   (org-atom-looks-like-uuid-p feed-id))
+				      "urn:uuid:" "") feed-id))
+		   (list 'updated nil (if (buffer-file-name)
+					  (nth 5 (file-attributes
+						  (buffer-file-name)))
+					(current-time)))
+		   (list 'link nil feed-url nil "self")
+		   (list 'author nil author))
 		  (mapcar '(lambda (entry)
 			     (cons 'entry (list entry))) entries)))))
 	(if (eq to-buffer 'string)
@@ -243,14 +243,14 @@ PROJECT and publishes them as one single atom feed."
 		      (atom-syndication-element-feed
 		       (append
 			(list
-			 (list 'title index-title)
-			 (list 'id (concat
-				    (if (and org-atom-prefer-urn-uuid
-					     (org-atom-looks-like-uuid-p
-					      feed-id))
-					"urn:uuid:" "") feed-id))
-			 (list 'updated (current-time))
-			 (list 'link feed-url nil "self"))))))
+			 (list 'title nil index-title)
+			 (list 'id nil (concat
+					(if (and org-atom-prefer-urn-uuid
+						 (org-atom-looks-like-uuid-p
+						  feed-id))
+					    "urn:uuid:" "") feed-id))
+			 (list 'updated nil (current-time))
+			 (list 'link nil feed-url nil "self"))))))
       (re-search-backward "</feed>")
       (while (setq file (pop files))
 	(let* ((entries-plist (org-combine-plists
@@ -332,9 +332,9 @@ tags as entry category terms."
 	   (elist
 	    (append
 	     (if published
-		 (list (list 'published (org-time-string-to-time published))))
+		 (list (list 'published nil (org-time-string-to-time published))))
 	     (if author
-		 (list (list 'author author)))
+		 (list (list 'author nil author)))
 	     (when publish-content
 	       (let (beg end content)
 		 (save-excursion
@@ -346,17 +346,17 @@ tags as entry category terms."
 		   (list (list 'content content "html")))))
 	     (if (and content-url (not (string= content-url "")))
 		 (list
-		  (list 'link (concat content-url "#ID-" id) nil "alternate")))
+		  (list 'link nil (concat content-url "#ID-" id) nil "alternate")))
 	     (if (and publish-tags tags)
 		 (mapcar '(lambda (tag)
-			    (list 'category tag))
-		       (split-string tags ":")))
+			    (list 'category nil tag))
+			 (split-string tags ":")))
 	     (list
-	      (list 'title title (cons 'type "html"))
-	      (list 'updated (org-time-string-to-time updated))
-	      (list 'id (concat (if (and org-atom-prefer-urn-uuid
-					 (org-atom-looks-like-uuid-p id))
-				    "urn:uuid:" id-prefix) id))))))
+	      (list 'title nil title (cons 'type "html"))
+	      (list 'updated nil (org-time-string-to-time updated))
+	      (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
+					     (org-atom-looks-like-uuid-p id))
+					"urn:uuid:" id-prefix) id))))))
       elist)))
 
 (defun org-atom-prepare-headline (&optional pom)
