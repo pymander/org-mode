@@ -181,7 +181,7 @@ When PUB-DIR is set, use this as the publishing directory."
 	(setq feed
 	      (if body-only
 		  (mapconcat 'atom-syndication-element-entry entries "\n")
-		(atom-syndication-element-feed
+		(atom-syndication-element-feed nil
 		 (append
 		  (unless (string= description "")
 		    (list (list 'subtitle (org-trim description))))
@@ -201,7 +201,7 @@ When PUB-DIR is set, use this as the publishing directory."
 		   (list 'link nil feed-url nil "self")
 		   (list 'author nil author))
 		  (mapcar '(lambda (entry)
-			     (cons 'entry (list entry))) entries)))))
+			     (cons 'entry (list nil entry))) entries)))))
 	(if (eq to-buffer 'string)
 	    feed
 	  (with-current-buffer to-buffer
@@ -343,7 +343,7 @@ tags as entry category terms."
 		   (outline-end-of-subtree)
 		   (setq end (point))
 		   (setq content (buffer-substring-no-properties beg end))
-		   (list (list 'content content "html")))))
+		   (list (list 'content nil content 'html)))))
 	     (if (and content-url (not (string= content-url "")))
 		 (list
 		  (list 'link nil (concat content-url "#ID-" id) nil "alternate")))
@@ -352,7 +352,7 @@ tags as entry category terms."
 			    (list 'category nil tag))
 			 (split-string tags ":")))
 	     (list
-	      (list 'title nil title (cons 'type "html"))
+	      (list 'title (list (cons 'type 'html)) title)
 	      (list 'updated nil (org-time-string-to-time updated))
 	      (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
 					     (org-atom-looks-like-uuid-p id))
