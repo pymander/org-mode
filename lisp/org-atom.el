@@ -175,7 +175,7 @@ When PUB-DIR is set, use this as the publishing directory."
 	  (setq entries (mapcar '(lambda (e)
 				   (append
 				    (unless (assoc 'author e)
-				      (list (list 'author author)))
+				      (list (list 'author nil author)))
 				    e)
 				   ))))
 	(setq feed
@@ -332,7 +332,8 @@ tags as entry category terms."
 	   (elist
 	    (append
 	     (if published
-		 (list (list 'published nil (org-time-string-to-time published))))
+		 (list
+		  (list 'published nil (org-time-string-to-time published))))
 	     (if author
 		 (list (list 'author nil author)))
 	     (when publish-content
@@ -346,7 +347,8 @@ tags as entry category terms."
 		   (list (list 'content nil content 'html)))))
 	     (if (and content-url (not (string= content-url "")))
 		 (list
-		  (list 'link nil (concat content-url "#ID-" id) nil "alternate")))
+		  (list
+		   'link nil (concat content-url "#ID-" id) nil "alternate")))
 	     (if (and publish-tags tags)
 		 (mapcar '(lambda (tag)
 			    (list 'category nil tag))
