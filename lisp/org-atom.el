@@ -127,6 +127,8 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (feed-publish-tags (or
 			     (plist-get opt-plist :feed-publish-category-tags)
 			     org-atom-publish-category-tags))
+	 (feed-publish-email (or (plist-get opt-plist :email-info)
+				 org-export-email-info))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'org-atom-htmlize)
 	 entries feed filebuf)
@@ -175,7 +177,9 @@ When PUB-DIR is set, use this as the publishing directory."
 	  (setq entries (mapcar '(lambda (e)
 				   (append
 				    (unless (assoc 'author e)
-				      (list (list 'author nil author)))
+				      (list (if feed-publish-email
+						(list 'author nil author email)
+					      (list 'author nil author))))
 				    e)
 				   ))))
 	(setq feed
@@ -199,7 +203,9 @@ When PUB-DIR is set, use this as the publishing directory."
 						  (buffer-file-name)))
 					(current-time)))
 		   (list 'link nil feed-url nil "self")
-		   (list 'author nil author))
+		   (if feed-publish-email
+		       (list 'author nil author email)
+		     (list 'author nil author)))
 		  (mapcar '(lambda (entry)
 			     (cons 'entry (list nil entry))) entries)))))
 	(if (eq to-buffer 'string)
