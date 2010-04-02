@@ -266,7 +266,11 @@ PROJECT and publishes them as one single atom feed."
 					   pub-url
 					   (file-relative-name
 					    (file-name-sans-extension file) dir)
-					   ".html"))))
+					   (or
+					    (plist-get
+					     project-plist
+					     :feed-content-extension)
+					    ".html")))))
 	       (entries
 		(with-current-buffer (or (find-buffer-visiting file)
 					 (find-file-noselect file))
@@ -390,7 +394,7 @@ If POM is ommited, prepare headline at point."
     (insert string)
     (org-mode)
     (atom-syndication-sanitize
-     (org-export-region-as-html (point-min) (point-max) t 'string))))
+     (org-export-region-as-html (point-min) (point-max) t 'string)))))
 
 (defun org-atom-looks-like-uuid-p (string)
   "Return non-nil if STRING looks like a uuid."
