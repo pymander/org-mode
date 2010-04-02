@@ -292,11 +292,8 @@ PUB-DIR is the publishing directory."
 			    pub-url-base
 			    (if (string-match-p "/$" pub-url-base) "" "/")
 			    (file-relative-name
-			     pub-dir (plist-get plist :publishing-directory))
-			    (if (string-match-p "/$" pub-dir) "" "/")
-			    (file-name-sans-extension
-			     (file-name-nondirectory
-			      filename))))))
+			     (file-name-sans-extension
+			      filename) (plist-get plist :base-directory))))))
     ;; maybe set feed content and feed url
     (save-excursion
       (switch-to-buffer (or visiting (find-file filename)))
@@ -307,7 +304,10 @@ PUB-DIR is the publishing directory."
 				:feed-url
 				(concat pub-url-fse "." org-atom-feed-extension)
 				:feed-content-url
-				(concat pub-url-fse ".html")))) nil nil pub-dir)
+				(concat pub-url-fse
+					(or (plist-get
+					     plist :feed-content-extension)
+					    ".html"))))) nil nil pub-dir)
       (unless visiting
 	(kill-buffer)))))
 
