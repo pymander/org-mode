@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2010 by David Maus
 
-;; Author: David Maus <dmaus@ictsoc.de>
+;; Author: David Maus <dmaus [at] ictsoc.de>
 ;; Keywords: outlines, hypermedia
 ;; Version: 0.1beta
 ;;
@@ -180,8 +180,7 @@ When PUB-DIR is set, use this as the publishing directory."
 				      (list (if feed-publish-email
 						(list 'author nil author email)
 					      (list 'author nil author))))
-				    e)
-				   ))))
+				    e)))))
 	(setq feed
 	      (if body-only
 		  (mapconcat 'atom-syndication-element-entry entries "\n")
@@ -385,8 +384,33 @@ If POM is ommited, prepare headline at point."
 		       (concat "["
 			       (substring
 				(format-time-string
-				 (cdr org-time-stamp-formats))
+				 (cdr org-time-stamp-formats)
+				 (or (org-atom-prepare-headline-try-git)
+				     (current-time)))
 				1 -1) "]"))))))
+
+(defun org-atom-prepare-headline-try-git ()
+  "Return date when headline at point was last modified.
+
+Return nil if calling git blame on current file failes."
+  (interactive)
+  (let* ((comps (org-heading-components))
+	 (file (buffer-file-name))
+	 (re
+	  (format "^\t\\*\\{%d\\}[ \t]+%s"
+		  (nth 0 comps) (regexp-quote (nth 4 comps)))))
+    (with-temp-buffer
+      (cd (file-name-directory file))
+      (let ((git
+	     (shell-command (format "git blame -p %s" file) t)))
+	(goto-char (point-min))
+	(when (and (re-search-forward re nil t)
+		   (re-search-backward
+		    "^\\([[:xdigit:]]\\{40\\}\\)\\( [[:digit:]]+\\)\\{2\\}"))
+	  (goto-char (point-min))
+	  (when (re-search-forward (format "^%s" (match-string 1)))
+	    (when (re-search-forward "^author-time \\([[:digit:]]+\\)")
+	      (seconds-to-time (string-to-number (match-string 1))))))))))
 
 (defun org-atom-htmlize (string)
   "Return sanitized html markup for STRING."
@@ -394,7 +418,7 @@ If POM is ommited, prepare headline at point."
     (insert string)
     (org-mode)
     (atom-syndication-sanitize
-     (org-export-region-as-html (point-min) (point-max) t 'string)))))
+     (org-export-region-as-html (point-min) (point-max) t 'string))))
 
 (defun org-atom-looks-like-uuid-p (string)
   "Return non-nil if STRING looks like a uuid."
