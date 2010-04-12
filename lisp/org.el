@@ -1,12 +1,12 @@
 ;;; org.el --- Outline-based notes management and organizer
 ;; Carstens outline-mode for keeping track of everything.
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -85,6 +85,7 @@
 (require 'easymenu)
 
 (require 'org-macs)
+(require 'org-entities)
 (require 'org-compat)
 (require 'org-faces)
 (require 'org-list)
@@ -95,7 +96,7 @@
 
 ;;; Version
 
-(defconst org-version "6.34trans"
+(defconst org-version "6.35g"
   "The version number of the file org.el.")
 
 (defun org-version (&optional here)
@@ -230,7 +231,6 @@ to add the symbol `xyz', and the package must have a call to
 	(const :tag "C  man:               Support for links to manpages in Org-mode" org-man)
 	(const :tag "C  mtags:             Support for muse-like tags" org-mtags)
 	(const :tag "C  panel:             Simple routines for us with bad memory" org-panel)
-	(const :tag "C  R:                 Computation using the R language" org-R)
 	(const :tag "C  registry:          A registry for Org-mode links" org-registry)
 	(const :tag "C  org2rem:           Convert org appointments into reminders" org2rem)
 	(const :tag "C  screen:            Visit screen sessions through Org-mode links" org-screen)
@@ -791,7 +791,7 @@ lines to the buffer:
    #+STARTUP: odd
    #+STARTUP: oddeven"
   :group 'org-edit-structure
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-adapt-indentation t
@@ -2184,6 +2184,15 @@ When nil, the state change notes will be ordered according to time."
   :group 'org-progress
   :type 'boolean)
 
+(defcustom org-todo-repeat-to-state nil
+  "The TODO state to which a repeater should return the repeating task.
+By default this is the first task in a TODO sequence, or the previous state
+in a TODO_TYP set.  But you can specify another task here.
+alternatively, set the :REPEAT_TO_STATE: property of the entry."
+  :group 'org-todo
+  :type '(choice (const :tag "Head of sequence" nil)
+		 (string :tag "Specific state")))
+
 (defcustom org-log-repeat 'time
   "Non-nil means record moving through the DONE state when triggering repeat.
 An auto-repeating task is immediately switched back to TODO when
@@ -2907,12 +2916,12 @@ When nil, just push out a message."
   :type 'boolean)
 
 (defcustom org-format-latex-header "\\documentclass{article}
-\\usepackage{amssymb}
 \\usepackage[usenames]{color}
 \\usepackage{amsmath}
-\\usepackage{latexsym}
 \\usepackage[mathscr]{eucal}
 \\pagestyle{empty}             % do not remove
+\[PACKAGES]
+\[DEFAULT-PACKAGES]
 % The settings below are copied from fullpage.sty
 \\setlength{\\textwidth}{\\paperwidth}
 \\addtolength{\\textwidth}{-3cm}
@@ -2928,27 +2937,83 @@ When nil, just push out a message."
 \\addtolength{\\topmargin}{-2.54cm}"
   "The document header used for processing LaTeX fragments.
 It is imperative that this header make sure that no page number
-appears on the page."
+appears on the page.  The package defined in the variables
+`org-export-latex-default-packages-alist' and `org-export-latex-packages-alist'
+will either replace the placeholder \"[PACKAGES]\" in this header, or they
+will be appended."
   :group 'org-latex
   :type 'string)
 
 (defvar org-format-latex-header-extra nil)
 
-;; The following variable is defined here because is it also used
+;; The following variables are defined here because is it also used
 ;; when formatting latex fragments.  Originally it was part of the
 ;; LaTeX exporter, which is why the name includes "export".
-(defcustom org-export-latex-packages-alist nil
-  "Alist of packages to be inserted in the header.
-Each cell is of the format \( \"option\" . \"package\" \)."
+(defcustom org-export-latex-default-packages-alist
+  '(("AUTO" "inputenc")
+    ("T1"   "fontenc")
+    (""     "fixltx2e")
+    (""     "graphicx")
+    (""     "longtable")
+    (""     "float")
+    (""     "wrapfig")
+    (""     "soul")
+    (""     "t1enc")
+    (""     "textcomp")
+    (""     "marvosym")
+    (""     "wasysym")
+    (""     "latexsym")
+    (""     "amssymb")
+    (""     "hyperref")
+    "\\tolerance=1000"
+    )
+  "Alist of default packages to be inserted in the header.
+Change this only if one of the packages here causes an incompatibility
+with another package you are using.
+The packages in this list are needed by one part or another of Org-mode
+to function properly.  
+
+- inputenc, fontenc, t1enc: for basic font and character selection
+- textcomp, marvosymb, wasysym, latexsym, amssym: for various symbols used
+  for interpreting the entities in `org-entities'.  You can skip some of these
+  packages if you don't use any of the symbols in it.
+- graphicx: for including images
+- float, wrapfig: for figure placement
+- longtable: for long tables
+- hyperref: for cross references
+
+Therefore you should not modify this variable unless you know what you
+are doing.  The one reason to change it anyway is that you might be loading
+some other package that conflicts with one of the default packages.
+Each cell is of the format \( \"options\" \"package\" \)."
   :group 'org-export-latex
   :type '(repeat
-	  (list
-	   (string :tag "option")
-	   (string :tag "package"))))
+	  (choice 
+	   (string :tag "A line of LaTeX")
+	   (list :tag "options/package pair"
+		 (string :tag "options")
+		 (string :tag "package")))))
 
-(defgroup org-font-lock nil
-  "Font-lock settings for highlighting in Org-mode."
-  :tag "Org Font Lock"
+(defcustom org-export-latex-packages-alist nil
+  "Alist of packages to be inserted in every LaTeX the header.
+These will be inserted after `org-export-latex-default-packages-alist'.
+Each cell is of the format \( \"options\" \"package\" \).
+Make sure that you only lis packages here which:
+- you want in every file
+- do not conflict with the default packages in
+  `org-export-latex-default-packages-alist'
+- do not conflict with the setup in `org-format-latex-header'."
+  :group 'org-export-latex
+  :type '(repeat
+	  (choice 
+	   (string :tag "A line of LaTeX")
+	   (list :tag "options/package pair"
+		 (string :tag "options")
+		 (string :tag "package")))))
+
+(defgroup org-appearance nil
+  "Settings for Org-mode appearance."
+  :tag "Org Appearance"
   :group 'org)
 
 (defcustom org-level-color-stars-only nil
@@ -2956,7 +3021,7 @@ Each cell is of the format \( \"option\" . \"package\" \)."
 When nil, the entire headline is fontified.
 Changing it requires restart of `font-lock-mode' to become effective
 also in regions already fontified."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-hide-leading-stars nil
@@ -2972,38 +3037,49 @@ lines to the buffer:
 
    #+STARTUP: hidestars
    #+STARTUP: showstars"
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
+
+(defcustom org-hidden-keywords nil
+  "List of keywords that should be hidden when typed in the org buffer.
+For example, add #+TITLE to this list in order to make the
+document title appear in the buffer without the initial #+TITLE:
+keyword."
+  :group 'org-appearance
+  :type '(set (const :tag "#+AUTHOR" author)
+	      (const :tag "#+DATE" date)
+	      (const :tag "#+EMAIL" email)
+	      (const :tag "#+TITLE"  title)))
 
 (defcustom org-fontify-done-headline nil
   "Non-nil means change the face of a headline if it is marked DONE.
 Normally, only the TODO/DONE keyword indicates the state of a headline.
 When this is non-nil, the headline after the keyword is set to the
 `org-headline-done' as an additional indication."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-fontify-emphasized-text t
   "Non-nil means fontify *bold*, /italic/ and _underlined_ text.
 Changing this variable requires a restart of Emacs to take effect."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-fontify-whole-heading-line nil
   "Non-nil means fontify the whole line for headings.
 This is useful when setting a background color for the
 org-level-* faces."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-highlight-latex-fragments-and-specials nil
   "Non-nil means fontify what is treated specially by the exporters."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defcustom org-hide-emphasis-markers nil
   "Non-nil mean font-lock should hide the emphasis marker characters."
-  :group 'org-font-lock
+  :group 'org-appearance
   :type 'boolean)
 
 (defvar org-emph-re nil
@@ -3084,7 +3160,7 @@ body-regexp  A regexp like \".\" to match a body character.  Don't use
 newline      The maximum number of newlines allowed in an emphasis exp.
 
 Use customize to modify this, or restart Emacs after changing it."
-  :group 'org-font-lock
+  :group 'org-appearance
   :set 'org-set-emph-re
   :type '(list
 	  (sexp    :tag "Allowed chars in pre      ")
@@ -3110,7 +3186,7 @@ characters, the face to be used by font-lock for highlighting in Org-mode
 Emacs buffers, and the HTML tags to be used for this.
 For LaTeX export, see the variable `org-export-latex-emphasis-alist'.
 Use customize to modify this, or restart Emacs after changing it."
-  :group 'org-font-lock
+  :group 'org-appearance
   :set 'org-set-emph-re
   :type '(repeat
 	  (list
@@ -4212,7 +4288,7 @@ This is for getting out of special buffers like remember.")
 (defvar date)
 
 ;; Defined somewhere in this file, but used before definition.
-(defvar org-html-entities)
+(defvar org-entities)     ;; defined in org-entities.el
 (defvar org-struct-menu)
 (defvar org-org-menu)
 (defvar org-tbl-menu)
@@ -4681,6 +4757,17 @@ will be prompted for."
 	       ((string= block-type "verse")
 		(add-text-properties beg1 end1 '(face org-verse))))
 	      t))
+	   ((member dc1 '("title:" "author:" "email:" "date:"))
+	    (add-text-properties
+	     beg (match-end 3)
+	     (if (member (intern (substring dc1 0 -1)) org-hidden-keywords)
+		 '(font-lock-fontified t invisible t)
+	       '(font-lock-fontified t face org-document-info-keyword)))
+	    (add-text-properties
+	     (match-beginning 6) (match-end 6)
+	     (if (string-equal dc1 "title:")
+		 '(font-lock-fontified t face org-document-title)
+	       '(font-lock-fontified t face org-document-info))))
 	   ((not (member (char-after beg) '(?\  ?\t)))
 	    ;; just any other in-buffer setting, but not indented
 	    (add-text-properties
@@ -4866,7 +4953,8 @@ will be prompted for."
 	  (if org-export-with-TeX-macros
 	      (list (concat "\\\\"
 			    (regexp-opt
-			     (append (mapcar 'car org-html-entities)
+			     (append (mapcar 'car (append org-entities-user
+							  org-entities))
 				     (if (boundp 'org-latex-entities)
 					 (mapcar (lambda (x)
 						   (or (car-safe x) x))
@@ -5723,7 +5811,7 @@ If USE-MARKERS is set, return the positions as markers."
       (save-restriction
 	(widen)
 	(delq nil
-	      (mapcar (lambda (o) 
+	      (mapcar (lambda (o)
 			(when (eq (org-overlay-get o 'invisible) 'outline)
 			  (setq beg (org-overlay-start o)
 				end (org-overlay-end o))
@@ -8130,7 +8218,7 @@ Use TAB to complete link prefixes, then RET for type-specific completion support
 		    (if (nth 1 x) (concat (car x) " (" (nth 1 x) ")") (car x)))
 		  (reverse org-stored-links) "\n"))))
       (let ((cw (selected-window)))
-	(select-window (get-buffer-window "*Org Links*"))
+	(select-window (get-buffer-window "*Org Links*" 'visible))
 	(setq truncate-lines t)
 	(unless (pos-visible-in-window-p (point-max))
 	  (org-fit-window-to-buffer))
@@ -9051,7 +9139,7 @@ and to use an external application to visit the file.
 Optional LINE specifies a line to go to, optional SEARCH a string to
 search for.  If LINE or SEARCH is given, but IN-EMACS is nil, it will
 be assumed that org-open-file was called to open a file: link, and the
-original link to match against org-file-apps will be reconstructed 
+original link to match against org-file-apps will be reconstructed
 from PATH and whichever of LINE or SEARCH is given.
 
 If the file does not exist, an error is thrown."
@@ -9092,13 +9180,19 @@ If the file does not exist, an error is thrown."
 		    (and dirp (cdr (assoc 'directory apps)))
 		    ;; if we find a match in org-file-apps, store the match
 		    ;; data for later
-		    (let ((match (assoc-default dlink (org-apps-regexp-alist
-						       apps a-m-a-p)
-						'string-match)))
-		      (if match
+		    (let* ((re-list1 (org-apps-regexp-alist apps nil))
+			   (re-list2 
+			    (if a-m-a-p
+				(org-apps-regexp-alist apps a-m-a-p)
+			      re-list1))
+			   (private-match
+			    (assoc-default dlink re-list1 'string-match))
+			   (general-match
+			    (assoc-default dfile re-list2 'string-match)))
+		      (if private-match
 			  (progn (setq link-match-data (match-data))
-				 match)
-			nil))
+				 private-match)
+			general-match))
 		    (cdr (assoc ext apps))
 		    (cdr (assoc t apps))))))
     (when (eq cmd 'system)
@@ -9966,7 +10060,7 @@ At all other locations, this simply calls the value of
 				  org-link-abbrev-alist))
 		    (texp
 		     (setq type :tex)
-		     org-html-entities)
+		     (append org-entities-user org-entities))
 		    ((string-match "\\`\\*+[ \t]+\\'"
 				   (buffer-substring (point-at-bol) beg))
 		     (setq type :todo)
@@ -10474,7 +10568,7 @@ This should be called with the cursor in a line with a statistics cookie."
 		  (org-update-parent-todo-statistics))
 	      (goto-char pos)
 	      (beginning-of-line 1)
-	      (while (re-search-forward 
+	      (while (re-search-forward
 		      "\\(\\(\\[[0-9]*%\\]\\)\\|\\(\\[[0-9]*/[0-9]*\\]\\)\\)"
 		      (point-at-eol) t)
 		(replace-match (if (match-end 2) "[100%]" "[0/0]") t t)))))
@@ -10750,10 +10844,14 @@ This function is run automatically after each state change to a DONE state."
 	 (org-log-done nil)
 	 (org-todo-log-states nil)
 	 (nshiftmax 10) (nshift 0)
-	 re type n what ts time)
+	 re type n what ts time to-state)
     (when repeat
       (if (eq org-log-repeat t) (setq org-log-repeat 'state))
-      (org-todo (if (eq interpret 'type) last-state head))
+      (setq to-state (or (org-entry-get nil "REPEAT_TO_STATE")
+			 org-todo-repeat-to-state))
+      (unless (and to-state (member to-state org-todo-keywords-1))
+	(setq to-state (if (eq interpret 'type) last-state head)))
+      (org-todo to-state)
       (org-entry-put nil "LAST_REPEAT" (format-time-string
 					(org-time-stamp-format t t)))
       (when org-log-repeat
@@ -12578,7 +12676,7 @@ but in some other way.")
     "LOCATION" "LOGGING" "COLUMNS" "VISIBILITY"
     "TABLE_EXPORT_FORMAT" "TABLE_EXPORT_FILE"
     "EXPORT_FILE_NAME" "EXPORT_TITLE" "EXPORT_AUTHOR" "EXPORT_DATE"
-    "ORDERED" "NOBLOCKING" "COOKIE_DATA" "LOG_INTO_DRAWER"
+    "ORDERED" "NOBLOCKING" "COOKIE_DATA" "LOG_INTO_DRAWER" "REPEAT_TO_STATE"
     "CLOCK_MODELINE_TOTAL" "STYLE" "HTML_CONTAINER_CLASS")
   "Some properties that are used by Org-mode for various purposes.
 Being in this list makes sure that they are offered for completion.")
@@ -14703,7 +14801,7 @@ the buffer and restores the previous window configuration."
 	  (insert
 	   (mapconcat
 	    (lambda (f) ;; Keep un-expanded entries.
-	      (if (setq u (assoc f fe)) 
+	      (if (setq u (assoc f fe))
 		  (cdr u)
 		f))
 	    list "\n")
@@ -14880,6 +14978,8 @@ When a buffer is unmodified, it is just killed.  When modified, it is saved
 		(add-text-properties
 		 (match-beginning 0) (org-end-of-subtree t) pc)))
 	    (set-buffer-modified-p bmp)))))
+    (setq org-todo-keywords-for-agenda
+          (org-uniquify org-todo-keywords-for-agenda))
     (setq org-todo-keyword-alist-for-agenda
 	  (org-uniquify org-todo-keyword-alist-for-agenda)
 	  org-tag-alist-for-agenda (org-uniquify org-tag-alist-for-agenda))))
@@ -15118,6 +15218,7 @@ Some of the options can be changed using the variable
 	      (setq hash (sha1 (prin1-to-string
 				(list org-format-latex-header
 				      org-format-latex-header-extra
+				      org-export-latex-default-packages-alist
 				      org-export-latex-packages-alist
 				      org-format-latex-options
 				      forbuffer txt)))
@@ -15161,7 +15262,9 @@ Some of the options can be changed using the variable
 		  (push ov org-latex-fragment-image-overlays)
 		  (goto-char end))
 	      (delete-region beg end)
-	      (insert link))))))))
+              (insert (org-add-props link
+                          (list 'org-latex-src
+                                (replace-regexp-in-string "\"" "" txt)))))))))))
 
 ;; This function borrows from Ganesh Swami's latex2png.el
 (defun org-create-formula-image (string tofile options buffer)
@@ -15187,20 +15290,14 @@ Some of the options can be changed using the variable
     (if (eq fg 'default) (setq fg (org-dvipng-color :foreground)))
     (if (eq bg 'default) (setq bg (org-dvipng-color :background)))
     (with-temp-file texfile
-      (insert org-format-latex-header
-	      (if org-export-latex-packages-alist
-		  (concat "\n"
-			  (mapconcat (lambda(p)
-				       (if (equal "" (car p))
-					   (format "\\usepackage{%s}" (cadr p))
-					 (format "\\usepackage[%s]{%s}"
-						 (car p) (cadr p))))
-				     org-export-latex-packages-alist "\n"))
-		"")
-	      (if org-format-latex-header-extra
-		  (concat "\n" org-format-latex-header-extra)
-		"")
-	      "\n\\begin{document}\n" string "\n\\end{document}\n"))
+      (insert (org-splice-latex-header
+	       org-format-latex-header
+	       org-export-latex-default-packages-alist
+	       org-export-latex-packages-alist
+	       org-format-latex-header-extra))
+      (insert "\n\\begin{document}\n" string "\n\\end{document}\n")
+      (require 'org-latex)
+      (org-export-latex-fix-inputenc))
     (let ((dir default-directory))
       (condition-case nil
 	  (progn
@@ -15229,6 +15326,60 @@ Some of the options can be changed using the variable
 	(loop for e in '(".dvi" ".tex" ".aux" ".log" ".png") do
 	      (delete-file (concat texfilebase e)))
 	pngfile))))
+
+(defun org-splice-latex-header (tpl def-pkg pkg &optional extra)
+  "Fill a LaTeX header template TPL.
+In the template, the following place holders will be recognized:
+
+ [DEFAULT-PACKAGES]      \\usepackage statements for DEF-PKG
+ [NO-DEFAULT-PACKAGES]   do not include DEF-PKG
+ [PACKAGES]              \\usepackage statements for PKG 
+ [NO-PACKAGES]           do not include PKG
+ [EXTRA]                 the string EXTRA
+ [NO-EXTRA]              do not include EXTRA
+
+For backward compatibility, if both the positive and the negative place
+holder is missing, the positive one (without the \"NO-\") will be
+assumed to be present at the end of the template.
+DEF-PKG and PKG are assumed to be alists of options/packagename lists.
+EXTRA is a string."
+  (let (rpl (end ""))
+    (if (string-match "^[ \t]*\\[\\(NO-\\)?DEFAULT-PACKAGES\\][ \t]*\n?" tpl)
+	(setq rpl (if (or (match-end 1) (not def-pkg))
+		      "" (org-latex-packages-to-string def-pkg t))
+	      tpl (replace-match rpl t t tpl))
+      (if def-pkg (setq end (org-latex-packages-to-string def-pkg))))
+    
+    (if (string-match "\\[\\(NO-\\)?PACKAGES\\][ \t]*\n?" tpl)
+	(setq rpl (if (or (match-end 1) (not pkg))
+		      "" (org-latex-packages-to-string pkg t))
+	      tpl (replace-match rpl t t tpl))
+      (if pkg (setq end (concat end "\n" (org-latex-packages-to-string pkg)))))
+
+    (if (string-match "\\[\\(NO-\\)?EXTRA\\][ \t]*\n?" tpl)
+	(setq rpl (if (or (match-end 1) (not extra))
+		      "" (concat extra "\n"))
+	      tpl (replace-match rpl t t tpl))
+      (if (and extra (string-match "\\S-" extra))
+	  (setq end (concat end "\n" extra))))
+
+    (if (string-match "\\S-" end)
+	(concat tpl "\n" end)
+      tpl)))
+
+(defun org-latex-packages-to-string (pkg &optional newline)
+  "Turn an alist of packages into a string with the \\usepackage macros."
+  (setq pkg (mapconcat (lambda(p)
+			 (cond
+			  ((stringp p) p)
+			  ((equal "" (car p))
+			   (format "\\usepackage{%s}" (cadr p)))
+			  (t
+			   (format "\\usepackage[%s]{%s}"
+				   (car p) (cadr p)))))
+		       pkg
+		       "\n"))
+  (if newline (concat pkg "\n") pkg))
 
 (defun org-dvipng-color (attr)
   "Return an rgb color specification for dvipng."

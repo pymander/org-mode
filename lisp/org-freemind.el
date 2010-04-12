@@ -1,11 +1,11 @@
 ;;; org-freemind.el --- Export Org files to freemind
 
-;; Copyright (C) 2009 Free Software Foundation, Inc.
+;; Copyright (C) 2009, 2010 Free Software Foundation, Inc.
 
 ;; Author: Lennart Borgman (lennart O borgman A gmail O com)
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -682,7 +682,7 @@ Otherwise give an error say the file exists."
                   (while (>= current-level next-level)
                     (with-current-buffer mm-buffer
                       (insert "</node>\n")
-                      (setq current-level 
+                      (setq current-level
 			    (- current-level (if odd-only 2 1))))))
                 (setq this-node-end (1+ next-node-end))
                 (setq this-m2 next-m2)
@@ -706,7 +706,7 @@ Otherwise give an error say the file exists."
           (with-current-buffer mm-buffer
             (while (> current-level base-level)
               (insert "</node>\n")
-	      (setq current-level 
+	      (setq current-level
 		    (- current-level (if odd-only 2 1)))
               ))
           (with-current-buffer mm-buffer

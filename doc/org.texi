@@ -3,8 +3,8 @@
 @setfilename ../../info/org
 @settitle The Org Manual
 
-@set VERSION 6.34trans
-@set DATE January 2010
+@set VERSION 6.35g
+@set DATE April 2010
 
 @c Version and Contact Info
 @set MAINTAINERSITE @uref{http://orgmode.org,maintainers webpage}
@@ -334,7 +334,7 @@ Exporting
 * Selective export::            Using tags to select and exclude trees
 * Export options::              Per-file export settings
 * The export dispatcher::       How to access exporter commands
-* ASCII export::                Exporting to plain ASCII
+* ASCII/Latin-1/UTF-8 export::  Exporting to flat files with encoding
 * HTML export::                 Exporting to HTML
 * LaTeX and PDF export::        Exporting to La@TeX{}, and processing to PDF
 * DocBook export::              Exporting to DocBook
@@ -356,8 +356,8 @@ HTML export
 La@TeX{} and PDF export
 
 * LaTeX/PDF export commands::   Which key invokes which commands
+* Header and sectioning::       Setting up the export file structure
 * Quoting LaTeX code::          Incorporating literal La@TeX{} code
-* Sectioning structure::        Changing sectioning in La@TeX{} output
 * Tables in LaTeX export::      Options for exporting tables to La@TeX{}
 * Images in LaTeX export::      How to insert figures into La@TeX{} output
 * Beamer class export::         Turning the file into a presentation
@@ -2061,11 +2061,18 @@ see the @samp{E} mode switch below).  If there are no non-empty fields,
 For Calc formulas and Lisp formulas @code{@@#} and @code{$#} can be used to
 get the row or column number of the field where the formula result goes.
 The traditional Lisp formula equivalents are @code{org-table-current-dline}
-and @code{org-table-current-column}.  Example:
+and @code{org-table-current-column}.  Examples:
 
 @example
-if(@@# % 2, $#, string(""))      @r{column number on odd lines only}
+if(@@# % 2, $#, string(""))   @r{column number on odd lines only}
+$3 = remote(FOO, @@@@#$2)      @r{copy column 2 from table FOO into}
+                             @r{column 3 of the current table}
 @end example
+
+@noindent For the second example, table FOO must have at least as many rows
+as the current table.  Inefficient@footnote{The computation time scales as
+O(N^2) because table FOO is parsed for each field to be copied.} for large
+number of rows.
 
 @subsubheading Named references
 @cindex named references
@@ -5368,17 +5375,21 @@ from that time.  If you need both a repeater and a special warning period in
 a deadline entry, the repeater should come first and the warning period last:
 @code{DEADLINE: <2005-10-01 Sat +1m -3d>}.
 
-Deadlines and scheduled items produce entries in the agenda when they
-are over-due, so it is important to be able to mark such an entry as
-completed once you have done so.  When you mark a DEADLINE or a SCHEDULE
-with the TODO keyword DONE, it will no longer produce entries in the
-agenda.  The problem with this is, however, that then also the
-@emph{next} instance of the repeated entry will not be active.  Org mode
-deals with this in the following way: When you try to mark such an entry
-DONE (using @kbd{C-c C-t}), it will shift the base date of the repeating
-timestamp by the repeater interval, and immediately set the entry state
-back to TODO.  In the example above, setting the state to DONE would
-actually switch the date like this:
+@vindex org-todo-repeat-to-state
+Deadlines and scheduled items produce entries in the agenda when they are
+over-due, so it is important to be able to mark such an entry as completed
+once you have done so.  When you mark a DEADLINE or a SCHEDULE with the TODO
+keyword DONE, it will no longer produce entries in the agenda.  The problem
+with this is, however, that then also the @emph{next} instance of the
+repeated entry will not be active.  Org mode deals with this in the following
+way: When you try to mark such an entry DONE (using @kbd{C-c C-t}), it will
+shift the base date of the repeating timestamp by the repeater interval, and
+immediately set the entry state back to TODO@footnote{In fact, the target
+state is taken from, in this sequence, the @code{REPEAT_TO_STATE} property or
+the variable @code{org-todo-repeat-to-state}.  If neither of these is
+specified, the target state defaults to the first state of the TODO state
+sequence.}.  In the example above, setting the state to DONE would actually
+switch the date like this:
 
 @example
 ** TODO Pay the rent
@@ -8418,7 +8429,8 @@ Both the native Org mode tables (@pxref{Tables}) and tables formatted with
 the @file{table.el} package will be exported properly.  For Org mode tables,
 the lines before the first horizontal separator line will become table header
 lines.  You can use the following lines somewhere before the table to assign
-a caption and a label for cross references:
+a caption and a label for cross references, and in the text you can refer to
+the object with @code{\ref@{tab:basic-data@}}:
 
 @example
 #+CAPTION: This is the caption for the next table (or link)
@@ -8893,7 +8905,7 @@ enabled (default in Emacs 23).
 * Selective export::            Using tags to select and exclude trees
 * Export options::              Per-file export settings
 * The export dispatcher::       How to access exporter commands
-* ASCII export::                Exporting to plain ASCII
+* ASCII/Latin-1/UTF-8 export::  Exporting to flat files with encoding
 * HTML export::                 Exporting to HTML
 * LaTeX and PDF export::        Exporting to La@TeX{}, and processing to PDF
 * DocBook export::              Exporting to DocBook
@@ -9041,7 +9053,7 @@ settings with properties @code{EXPORT_FILE_NAME}, @code{EXPORT_TITLE},
 @code{EXPORT_TEXT}, @code{EXPORT_AUTHOR}, @code{EXPORT_DATE}, and
 @code{EXPORT_OPTIONS}.
 
-@node The export dispatcher, ASCII export, Export options, Exporting
+@node The export dispatcher, ASCII/Latin-1/UTF-8 export, Export options, Exporting
 @section The export dispatcher
 @cindex dispatcher, for export commands
 
@@ -9073,12 +9085,15 @@ Call an the exporter, but reverse the setting of
 not set, or force processing in the current Emacs process if set.
 @end table
 
-@node ASCII export, HTML export, The export dispatcher, Exporting
-@section ASCII export
+@node ASCII/Latin-1/UTF-8 export, HTML export, The export dispatcher, Exporting
+@section ASCII/Latin-1/UTF-8 export
 @cindex ASCII export
+@cindex Latin-1 export
+@cindex UTF-8 export
 
 ASCII export produces a simple and very readable version of an Org-mode
-file.
+file, containing only plain ASCII.  Latin-1 and UTF-8 export augment the file
+with special characters and symbols available in these encodings.
 
 @cindex region, active
 @cindex active region
@@ -9099,8 +9114,18 @@ export.
 @kindex C-c C-e A
 @item C-c C-e A
 Export to a temporary buffer, do not create a file.
+@kindex C-c C-e n
+@kindex C-c C-e N
+@item C-c C-e n @ @ @r{and} @ @ C-c C-e N
+Like the above commands, but use Latin-1 encoding.
+@kindex C-c C-e u
+@kindex C-c C-e U
+@item C-c C-e u @ @ @r{and} @ @ C-c C-e U
+Like the above commands, but use UTF-8 encoding.
 @kindex C-c C-e v a
-@item C-c C-e v a
+@kindex C-c C-e v n
+@kindex C-c C-e v u
+@item C-c C-e v a @ @ @r{and} @ @ C-c C-e v n @ @ @r{and} @ @ C-c C-e v u
 Export only the visible part of the document.
 @end table
 
@@ -9128,7 +9153,7 @@ Links will be exported in a footnote-like style, with the descriptive part in
 the text and the link in a note before the next heading.  See the variable
 @code{org-export-ascii-links-to-notes} for details and other options.
 
-@node HTML export, LaTeX and PDF export, ASCII export, Exporting
+@node HTML export, LaTeX and PDF export, ASCII/Latin-1/UTF-8 export, Exporting
 @section HTML export
 @cindex HTML export
 
@@ -9481,20 +9506,25 @@ pages, configure the variable @code{org-export-html-use-infojs}.
 @cindex Guerry, Bastien
 
 Org mode contains a La@TeX{} exporter written by Bastien Guerry.  With
-further processing, this backend is also used to produce PDF output.  Since
-the La@TeX{} output uses @file{hyperref} to implement links and cross
-references, the PDF output file will be fully linked.
+further processing@footnote{The default LaTeX output is designed for
+processing with pdftex or latex.  It includes packages that are not
+compatible with xetex and possibly luatex.  See the variables
+@code{org-export-latex-default-packages-alist} and
+@code{org-export-latex-packages-alist}.}, this backend is also used to
+produce PDF output.  Since the La@TeX{} output uses @file{hyperref} to
+implement links and cross references, the PDF output file will be fully
+linked.
 
 @menu
 * LaTeX/PDF export commands::   Which key invokes which commands
+* Header and sectioning::       Setting up the export file structure
 * Quoting LaTeX code::          Incorporating literal La@TeX{} code
-* Sectioning structure::        Changing sectioning in La@TeX{} output
 * Tables in LaTeX export::      Options for exporting tables to La@TeX{}
 * Images in LaTeX export::      How to insert figures into La@TeX{} output
 * Beamer class export::         Turning the file into a presentation
 @end menu
 
-@node LaTeX/PDF export commands, Quoting LaTeX code, LaTeX and PDF export, LaTeX and PDF export
+@node LaTeX/PDF export commands, Header and sectioning, LaTeX and PDF export, LaTeX and PDF export
 @subsection La@TeX{} export commands
 
 @cindex region, active
@@ -9553,7 +9583,41 @@ with a numeric prefix argument. For example,
 @noindent
 creates two levels of headings and does the rest as items.
 
-@node Quoting LaTeX code, Sectioning structure, LaTeX/PDF export commands, LaTeX and PDF export
+@node Header and sectioning, Quoting LaTeX code, LaTeX/PDF export commands, LaTeX and PDF export
+@subsection Header and sectioning structure
+@cindex La@TeX{} class
+@cindex La@TeX{} sectioning structure
+@cindex La@TeX{} header
+@cindex header, for LaTeX files
+@cindex sectioning structure, for LaTeX export
+
+By default, the La@TeX{} output uses the class @code{article}.
+
+@vindex org-export-latex-default-class
+@vindex org-export-latex-classes
+@vindex org-export-latex-default-packages-alist
+@vindex org-export-latex-packages-alist
+@cindex #+LATEX_HEADER
+@cindex #+LATEX_CLASS
+@cindex #+LATEX_CLASS_OPTIONS
+@cindex property, LATEX_CLASS
+@cindex property, LATEX_CLASS_OPTIONS
+You can change this globally by setting a different value for
+@code{org-export-latex-default-class} or locally by adding an option like
+@code{#+LaTeX_CLASS: myclass} in your file, or with a @code{:LaTeX_CLASS:}
+property that applies when exporting a region containing only this (sub)tree.
+The class must be listed in @code{org-export-latex-classes}.  This variable
+defines a header template for each class@footnote{Into which the values of
+@code{org-export-latex-default-packages-alist} and
+@code{org-export-latex-packages-alist} are spliced.}, and allows you to
+define the sectioning structure for each class.  You can also define your own
+classes there.  @code{#+LaTeX_CLASS_OPTIONS} or a @code{LaTeX_CLASS_OPTIONS}
+property can specify the options for the @code{\documentclass} macro.  You
+can also use @code{#+LATEX_HEADER: \usepackage@{xyz@}} to add lines to the
+header.  See the docstring of @code{org-export-latex-classes} for more
+information.
+
+@node Quoting LaTeX code, Tables in LaTeX export, Header and sectioning, LaTeX and PDF export
 @subsection Quoting La@TeX{} code
 
 Embedded La@TeX{} as described in @ref{Embedded LaTeX}, will be correctly
@@ -9577,32 +9641,8 @@ All lines between these markers are exported literally
 #+END_LaTeX
 @end example
 
-@node  Sectioning structure, Tables in LaTeX export, Quoting LaTeX code, LaTeX and PDF export
-@subsection Sectioning structure
-@cindex La@TeX{} class
-@cindex La@TeX{} sectioning structure
 
-By default, the La@TeX{} output uses the class @code{article}.
-
-@vindex org-export-latex-default-class
-@vindex org-export-latex-classes
-@cindex #+LATEX_HEADER
-@cindex #+LATEX_CLASS
-@cindex #+LATEX_CLASS_OPTIONS
-@cindex property, LATEX_CLASS
-@cindex property, LATEX_CLASS_OPTIONS
-You can change this globally by setting a different value for
-@code{org-export-latex-default-class} or locally by adding an option like
-@code{#+LaTeX_CLASS: myclass} in your file, or with a @code{:LaTeX_CLASS:}
-property that applies when exporting a region containing only this (sub)tree.
-The class should be listed in @code{org-export-latex-classes}, where you can
-also define the sectioning structure for each class, as well as defining
-additional classes.  In a similar way, @code{#+LaTeX_CLASS_OPTIONS} or a
-@code{LaTeX_CLASS_OPTIONS} property can specify the options for the
-@code{\documentclass} macro.  You can also use @code{#+LATEX_HEADER:
-\usepackage@{xyz@}} to add lines to the header.
-
-@node Tables in LaTeX export, Images in LaTeX export, Sectioning structure, LaTeX and PDF export
+@node Tables in LaTeX export, Images in LaTeX export, Quoting LaTeX code, LaTeX and PDF export
 @subsection Tables in La@TeX{} export
 @cindex tables, in La@TeX{} export
 
@@ -12321,11 +12361,14 @@ in-buffer settings, but it will understand the logistics of todo state
 
 Org-mode has commands to prepare a directory with files for @i{MobileOrg},
 and to read captured notes from there.  If Emacs can directly write to the
-WebDAV directory accessed by @i{MobileOrg}, just point to this directory
-using the variable @code{org-mobile-directory}.  Using the @file{tramp}
-method, @code{org-mobile-directory} may point to a remote directory
-accessible through, for example, 
-@file{ssh/scp}:
+WebDAV directory@footnote{If you are using a public server, you might prefer
+to encrypt the files on the server.  This can be done with Org-mode 6.35 and
+MobileOrg 1.2.  On the Emacs side, configure the variables
+@code{org-mobile-use-encryption} and @code{org-mobile-encryption-password}.}
+accessed by @i{MobileOrg}, just point to this directory using the variable
+@code{org-mobile-directory}.  Using the @file{tramp} method,
+@code{org-mobile-directory} may point to a remote directory accessible
+through, for example, @file{ssh/scp}:
 
 @smallexample
 (setq org-mobile-directory "/scpc:user@@remote.host:org/webdav/")

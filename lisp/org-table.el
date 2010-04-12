@@ -1,12 +1,12 @@
 ;;; org-table.el --- The table editor for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -1028,10 +1028,10 @@ When ALIGN is set, als realign the table."
 		(progn (org-table-goto-column column nil 'force) t)
 		(org-table-get-field column value)))
     (and align (org-table-align))))
-  
+
 (defun org-table-current-line ()
   "Return the index of the current data line."
-  (let ((pos (point)) (end (org-table-end)) (cnt 0)) 
+  (let ((pos (point)) (end (org-table-end)) (cnt 0))
     (save-excursion
       (goto-char (org-table-begin))
       (while (and (re-search-forward org-table-dataline-regexp end t)

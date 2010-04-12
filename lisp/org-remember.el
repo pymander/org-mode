@@ -1,12 +1,12 @@
 ;;; org-remember.el --- Fast note taking in Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -131,7 +131,7 @@ Furthermore, the following %-escapes will be replaced with content:
               You may define a prompt like %^{Please specify birthday
   %n          user name (taken from `user-full-name')
   %a          annotation, normally the link created with org-store-link
-  %i          initial content, copied from the active region.  If %i is 
+  %i          initial content, copied from the active region.  If %i is
               indented, the entire inserted text will be indented as well.
   %c          current kill ring head
   %x          content of the X clipboard
@@ -1025,7 +1025,7 @@ See also the variable `org-reverse-note-order'."
 			       (beginning-of-line 2)
 			     (end-of-line 1)
 			     (insert "\n"))))
-		     (org-paste-subtree (if clocksp 
+		     (org-paste-subtree (if clocksp
 					    level
 					  (org-get-valid-level level 1)) txt)
 		     (and org-auto-align-tags (org-set-tags nil t))

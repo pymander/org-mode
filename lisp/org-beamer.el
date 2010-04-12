@@ -1,8 +1,8 @@
 ;;; org-beamer.el --- Beamer-specific LaTeX export for org-mode
 ;;
-;; Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
+;; Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
 ;;
-;; Version: 6.34trans
+;; Version: 6.35g
 ;; Author: Carsten Dominik <carsten.dominik AT gmail DOT com>
 ;; Maintainer: Carsten Dominik <carsten.dominik AT gmail DOT com>
 ;; Keywords: org, wp, tex
@@ -256,7 +256,7 @@ in org-export-latex-classes."
 	  (and frame-level (= level frame-level)))
       ;; A frame
       (org-beamer-get-special props)
-      
+
       (setq in (org-fill-template
 		"\\begin{frame}%a%A%o%T%S%x"
 		(list (cons "a" (or action ""))

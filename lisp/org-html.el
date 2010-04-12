@@ -1,12 +1,12 @@
 ;;; org-html.el --- HTML export for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -434,7 +434,16 @@ This may also be a function, building and inserting the postamble.")
 			(file-name-nondirectory
 			 org-current-export-file)))
      org-current-export-dir nil "Creating LaTeX image %s"))
-  (message "Exporting..."))
+  (goto-char (point-min))
+  (let (label l1)
+    (while (re-search-forward "\\\\ref{\\([^{}\n]+\\)}" nil t)
+      (org-if-unprotected-at (match-beginning 1)
+	(setq label (match-string 1))
+	(save-match-data
+	  (if (string-match "\\`[a-z]\\{1,10\\}:\\(.+\\)" label)
+	      (setq l1 (substring label (match-beginning 1)))
+	    (setq l1 label)))
+	(replace-match (format "[[#%s][%s]]" label l1) t t)))))
 
 ;;;###autoload
 (defun org-export-as-html-and-open (arg)
@@ -1005,7 +1014,7 @@ lang=\"%s\" xml:lang=\"%s\">
 				  "\" class=\"target\">" (match-string 1 line)
 				  "@</a> ")
 			  t t line)))))
-	    
+
 	  (setq line (org-html-handle-time-stamps line))
 
 	  ;; replace "&" by "&amp;", "<" and ">" by "&lt;" and "&gt;"
@@ -1520,10 +1529,12 @@ lang=\"%s\" xml:lang=\"%s\">
   "Create image tag with source and attributes."
   (save-match-data
     (if (string-match "^ltxpng/" src)
-	(format "<img src=\"%s\"/>" src)
+	(format "<img src=\"%s\" alt=\"%s\"/>"
+                src (org-find-text-property-in-string 'org-latex-src src))
       (let* ((caption (org-find-text-property-in-string 'org-caption src))
 	     (attr (org-find-text-property-in-string 'org-attributes src))
 	     (label (org-find-text-property-in-string 'org-label src)))
+	(setq caption (and caption (org-html-do-expand caption)))
 	(concat
 	(if caption
 	    (format "%s<div %sclass=\"figure\">
@@ -1599,16 +1610,10 @@ lang=\"%s\" xml:lang=\"%s\">
     ;; column and the special lines
     (setq lines (org-table-clean-before-export lines)))
 
-  (let* ((caption (or (get-text-property 0 'org-caption (car lines))
-		      (get-text-property (or (next-single-property-change
-					      0 'org-caption (car lines))
-					     0)
-					 'org-caption (car lines))))
-	 (attributes (or (get-text-property 0 'org-attributes (car lines))
-			 (get-text-property (or (next-single-property-change
-						 0 'org-attributes (car lines))
-						0)
-					    'org-attributes (car lines))))
+  (let* ((caption (org-find-text-property-in-string 'org-caption (car lines)))
+	 (label (org-find-text-property-in-string 'org-label (car lines)))
+	 (attributes (org-find-text-property-in-string 'org-attributes
+						       (car lines)))
 	 (html-table-tag (org-export-splice-attributes
 			  html-table-tag attributes))
 	 (head (and org-export-highlight-first-table-line
@@ -1618,6 +1623,7 @@ lang=\"%s\" xml:lang=\"%s\">
 
 	 (nline 0) fnum i
 	 tbopen line fields html gr colgropen rowstart rowend)
+    (setq caption (and caption (org-html-do-expand caption)))
     (if splice (setq head nil))
     (unless splice (push (if head "<thead>" "<tbody>") html))
     (setq tbopen t)
@@ -1690,6 +1696,8 @@ lang=\"%s\" xml:lang=\"%s\">
       ;; DocBook document, we want to always include the caption to make
       ;; DocBook XML file valid.
       (push (format "<caption>%s</caption>" (or caption "")) html)
+      (when label (push (format "<a name=\"%s\" id=\"%s\"></a>" label label)
+			html))
       (push html-table-tag html))
     (concat (mapconcat 'identity html "\n") "\n")))
 
@@ -1889,7 +1897,7 @@ If there are links in the string, don't modify these."
 	(push l res))
       (push (org-html-do-expand string) res)
       (apply 'concat (nreverse res)))))
-  
+
 (defun org-html-do-expand (s)
   "Apply all active conversions to translate special ASCII to HTML."
   (setq s (org-html-protect s))
@@ -1903,16 +1911,14 @@ If there are links in the string, don't modify these."
   (if org-export-with-sub-superscripts
       (setq s (org-export-html-convert-sub-super s)))
   (if org-export-with-TeX-macros
-      (let ((start 0) wd ass)
-	(while (setq start (string-match "\\\\\\([a-zA-Z]+\\)\\({}\\)?"
+      (let ((start 0) wd rep)
+	(while (setq start (string-match "\\\\\\([a-zA-Z]+[0-9]*\\)\\({}\\)?"
 					 s start))
 	  (if (get-text-property (match-beginning 0) 'org-protected s)
 	      (setq start (match-end 0))
 	    (setq wd (match-string 1 s))
-	    (if (setq ass (assoc wd org-html-entities))
-		(setq s (replace-match (or (cdr ass)
-					   (concat "&" (car ass) ";"))
-				       t t s))
+	    (if (setq rep (org-entity-get-representation wd 'html))
+		(setq s (replace-match rep t t s))
 	      (setq start (+ start (length wd))))))))
   s)
 
@@ -2010,9 +2016,11 @@ If there are links in the string, don't modify these."
 When TITLE is nil, just close all open levels."
   (org-close-par-maybe)
   (let* ((target (and title (org-get-text-property-any 0 'target title)))
-	 (extra-targets (assoc target org-export-target-aliases))
+	 (extra-targets (and target
+			     (assoc target org-export-target-aliases)))
 	 (extra-class (and title (org-get-text-property-any 0 'html-container-class title)))
-	 (preferred (cdr (assoc target org-export-preferred-target-alist)))
+	 (preferred (and target
+			 (cdr (assoc target org-export-preferred-target-alist))))
 	 (remove (or preferred target))
 	 (l org-level-max)
 	 snumber href suffix)

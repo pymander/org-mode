@@ -1,12 +1,12 @@
 ;;; org-clock.el --- The time clocking code for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -273,7 +273,7 @@ to add an effort property.")
 (defvar org-clock-heading-for-remember "")
 (defvar org-clock-start-time "")
 
-(defvar org-clock-left-over-time nil
+(defvar org-clock-leftover-time nil
   "If non-nil, user cancelled a clock; this is when leftover time started.")
 
 (defvar org-clock-effort ""
@@ -468,7 +468,6 @@ If not, show simply the clocked time like 01:50."
 	    (concat (org-propertize
 		     org-task-overrun-text
 		     'face 'org-mode-line-clock-overrun) org-mode-line-string)))
- 
   (force-mode-line-update))
 
 (defun org-clock-get-clocked-time ()
@@ -523,7 +522,7 @@ Notification is shown only once."
   (when (org-clocking-p)
     (let ((effort-in-minutes (org-hh:mm-string-to-minutes org-clock-effort))
 	  (clocked-time (org-clock-get-clocked-time)))
-      (if (setq org-task-overrun 
+      (if (setq org-task-overrun
 		(if (or (null effort-in-minutes) (zerop effort-in-minutes))
 		    nil
 		  (>= clocked-time effort-in-minutes)))
@@ -713,7 +712,7 @@ This routine can do one of many things:
       (org-clock-clock-out clock fail-quietly resolve-to)
       (unless org-clock-clocking-in
 	(if close-p
-	    (setq org-clock-left-over-time resolve-to)
+	    (setq org-clock-leftover-time resolve-to)
 	  (org-clock-clock-in clock)))))))
 
 (defun org-clock-resolve (clock &optional prompt-fn last-valid fail-quietly)
@@ -896,14 +895,14 @@ the clocking selection, associated with the letter `d'."
     (let ((interrupting (and (not org-clock-resolving-clocks-due-to-idleness)
 			     (org-clocking-p)))
 	  ts selected-task target-pos (msg-extra "")
-	  (left-over (and (not org-clock-resolving-clocks)
-			  org-clock-left-over-time)))
+	  (leftover (and (not org-clock-resolving-clocks)
+			  org-clock-leftover-time)))
       (when (and org-clock-auto-clock-resolution
 		 (or (not interrupting)
 		     (eq t org-clock-auto-clock-resolution))
 		 (not org-clock-clocking-in)
 		 (not org-clock-resolving-clocks))
-	(setq org-clock-left-over-time nil)
+	(setq org-clock-leftover-time nil)
 	(let ((org-clock-clocking-in t))
 	  (org-resolve-clocks)))	; check if any clocks are dangling
       (when (equal select '(4))
@@ -1021,13 +1020,13 @@ the clocking selection, associated with the letter `d'."
 	      (setq org-clock-total-time (org-clock-sum-current-item
 					  (org-clock-get-sum-start)))
 	      (setq org-clock-start-time
-		    (or (and left-over
+		    (or (and leftover
 			     (y-or-n-p
 			      (format
 			       "You stopped another clock %d mins ago; start this one from then? "
 			       (/ (- (org-float-time (current-time))
-				     (org-float-time left-over)) 60)))
-			     left-over)
+				     (org-float-time leftover)) 60)))
+			     leftover)
 			(current-time)))
 	      (setq ts (org-insert-time-stamp org-clock-start-time
 					      'with-hm 'inactive))))
@@ -1305,6 +1304,7 @@ With prefix arg SELECT, offer recently clocked tasks for selection."
     (org-back-to-heading t)
     (org-cycle-hide-drawers 'children)
     (recenter)
+    (org-reveal)
     (if recent
 	(message "No running clock, this is the most recently clocked task"))
     (run-hooks 'org-clock-goto-hook)))

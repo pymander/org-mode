@@ -1,12 +1,12 @@
 ;;; org-ascii.el --- ASCII export for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -72,6 +72,14 @@ i.e. with \"=>\" as ellipsis."
   :group 'org-export-ascii
   :type 'boolean)
 
+(defvar org-export-ascii-entities 'ascii
+  "The ascii representation to be used during ascii export.
+Possible values are:
+
+ascii     Only use plain ASCII characters
+latin1    Include Latin-1 character
+utf8      Use all UTF-8 characters")
+
 ;;; Hooks
 
 (defvar org-export-ascii-final-hook nil
@@ -80,6 +88,41 @@ i.e. with \"=>\" as ellipsis."
 ;;; ASCII export
 
 (defvar org-ascii-current-indentation nil) ; For communication
+
+;;;###autoload
+(defun org-export-as-latin1 (&rest args)
+  "Like `org-export-as-ascii', use latin1 encoding for special symbols."
+  (interactive)
+  (org-export-as-encoding 'org-export-as-ascii (interactive-p)
+			  'latin1 args))
+
+;;;###autoload
+(defun org-export-as-latin1-to-buffer (&rest args)
+  "Like `org-export-as-ascii-to-buffer', use latin1 encoding for symbols."
+  (interactive)
+  (org-export-as-encoding 'org-export-as-ascii-to-buffer (interactive-p)
+			  'latin1 args))
+
+;;;###autoload
+(defun org-export-as-utf8 (&rest args)
+  "Like `org-export-as-ascii', use use encoding for special symbols."
+  (interactive)
+  (org-export-as-encoding 'org-export-as-ascii (interactive-p)
+			  'utf8 args))
+
+;;;###autoload
+(defun org-export-as-utf8-to-buffer (&rest args)
+  "Like `org-export-as-ascii-to-buffer', use utf8 encoding for symbols."
+  (interactive)
+  (org-export-as-encoding 'org-export-as-ascii-to-buffer (interactive-p)
+			  'utf8 args))
+
+(defun org-export-as-encoding (command interactivep encoding &rest args)
+  (let ((org-export-ascii-entities encoding))
+    (if interactivep
+	(call-interactively command)
+      (apply command args))))
+
 
 ;;;###autoload
 (defun org-export-as-ascii-to-buffer (arg)
@@ -504,6 +547,8 @@ publishing directory."
   (when org-export-ascii-table-widen-columns
     (let ((org-table-do-narrow nil))
       (goto-char (point-min))
+      (org-ascii-replace-entities)
+      (goto-char (point-min))
       (org-table-map-tables
        (lambda ()
 	 (org-if-unprotected
@@ -530,6 +575,15 @@ publishing directory."
 	;; We just remove the tags for now.
 	(setq line (replace-match "" nil nil line))))
   line)
+
+(defun org-ascii-replace-entities ()
+  "Replace entities with the ASCII representation."
+  (let (e)
+    (while (re-search-forward "\\\\\\([a-zA-Z]+[0-9]*\\)" nil t)
+      (org-if-unprotected-at (match-beginning 1)
+	(setq e (org-entity-get-representation (match-string 1)
+					       org-export-ascii-entities))
+	(and e (replace-match e t t))))))
 
 (defun org-export-ascii-wrap (line where)
   "Wrap LINE at or before WHERE."

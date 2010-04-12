@@ -67,6 +67,10 @@ blocks by language."
   (interactive "fFile to tangle: \nP")
   (save-window-excursion (find-file file) (org-babel-tangle target-file lang)))
 
+(defun org-babel-tangle-publish (_ filename pub-dir)
+  "Tangle FILENAME and place the results in PUB-DIR."
+  (mapc (lambda (el) (copy-file el pub-dir t)) (org-babel-tangle-file filename)))
+
 (defun org-babel-tangle (&optional target-file lang)
   "Extract the bodies of all source code blocks from the current
 file into their own source-specific files.  Optional argument
@@ -91,7 +95,7 @@ exported source code blocks by language."
                 (lang-specs (cdr (assoc lang org-babel-tangle-langs)))
                 (ext (first lang-specs))
                 (she-bang (second lang-specs))
-                (commentable (not (third lang-specs)))
+                (commentable (and (fboundp lang-f) (not (third lang-specs))))
                 she-banged)
            (mapc
             (lambda (spec)
@@ -122,7 +126,7 @@ exported source code blocks by language."
                       (delete-file file-name))
                     ;; drop source-block to file
                     (with-temp-buffer
-                      (funcall lang-f)
+                      (if (fboundp lang-f) (funcall lang-f))
                       (when (and she-bang (not (member file-name she-banged)))
                         (insert (concat she-bang "\n"))
                         (setq she-banged (cons file-name she-banged)))
@@ -172,8 +176,10 @@ code blocks by language."
              (source-name (intern (or (fifth info)
                                       (format "block-%d" block-counter))))
              (src-lang (first info))
-             (body (org-babel-expand-noweb-references info))
              (params (third info))
+	     (body (if (equal "no" (cdr (assoc :noweb params)))
+		       (second info)
+		     (org-babel-expand-noweb-references info)))
              (spec (list link source-name params body (third (cdr (assoc src-lang org-babel-tangle-langs)))))
              by-lang)
         (unless (string= (cdr (assoc :tangle params)) "no") ;; maybe skip

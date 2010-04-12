@@ -1,12 +1,12 @@
 ;;; org-archive.el --- Archiving for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -40,7 +40,7 @@
   :type '(choice
 	  (const org-archive-subtree)
 	  (const org-archive-to-archive-sibling)
-	  (const org-archive-set-tag)))  
+	  (const org-archive-set-tag)))
 
 (defcustom org-archive-reversed-order nil
   "Non-nil means make the tree first child under the archive heading, not last."

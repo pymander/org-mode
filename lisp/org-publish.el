@@ -1,10 +1,11 @@
 ;;; org-publish.el --- publish related org-mode files as a website
-;; Copyright (C) 2006, 2007, 2008, 2009  Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2008, 2009, 2010
+;;          Free Software Foundation, Inc.
 
 ;; Author: David O'Toole <dto@gnu.org>
 ;; Maintainer: Carsten Dominik <carsten DOT dominik AT gmail DOT com>
 ;; Keywords: hypermedia, outlines, wp
-;; Version: 6.34trans
+;; Version: 6.35g
 
 ;; This file is part of GNU Emacs.
 ;;
@@ -42,11 +43,11 @@
 
 (defun org-publish-sanitize-plist (plist)
   (mapcar (lambda (x)
-	    (or (cdr (assoq x '((:index-filename . :sitemap-filename)
-				(:index-title . :sitemap-title)
-				(:index-function . :sitemap-function)
-				(:index-style . :sitemap-style)
-				(:auto-index . :auto-sitemap))))
+	    (or (cdr (assq x '((:index-filename . :sitemap-filename)
+			       (:index-title . :sitemap-title)
+			       (:index-function . :sitemap-function)
+			       (:index-style . :sitemap-style)
+			       (:auto-index . :auto-sitemap))))
 		x))
 	  plist))
 
@@ -724,7 +725,8 @@ the project."
 (defvar backend) ; dynamically scoped
 (defun org-publish-aux-preprocess ()
   "Find index entries and write them to an .orgx file."
-  (let (entry index target)
+  (let ((case-fold-search t)
+	entry index target)
     (goto-char (point-min))
     (while
 	(and
@@ -740,7 +742,7 @@ the project."
 			 (cdr (assoc target org-export-id-target-alist))
 			 target))
 	(push (cons entry target) index)))
-    (with-temp-file 
+    (with-temp-file
 	(concat (file-name-sans-extension org-current-export-file) ".orgx")
       (dolist (entry (nreverse index))
 	(insert (format "INDEX: (%s) %s\n" (cdr entry) (car entry)))))))

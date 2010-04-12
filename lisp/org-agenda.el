@@ -1,12 +1,12 @@
 ;;; org-agenda.el --- Dynamic task and appointment lists for Org
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -606,7 +606,7 @@ past    Don't show entries with a deadline timestamp for today or in the past.
 future  Don't show entries with a deadline timestamp in the future, not even
         when they become `near' ones.  Use it with caution.
 
-all     Ignore all TODO entries that do have a deadline.       
+all     Ignore all TODO entries that do have a deadline.
 
 t       Same as `near', for backward compatibility.
 
@@ -894,12 +894,12 @@ This function makes sure that dates are aligned for easy reading."
     (format "%-10s %2d %s %4d%s"
 	    dayname day monthname year weekstring)))
 
-(defcustom org-agenda-time-leading-zero nil 
+(defcustom org-agenda-time-leading-zero nil
   "Non-nil means use leading zero for military times in agenda.
 For example, 9:30am would become 09:30 rather than  9:30."
   :group 'org-agenda-daily/weekly
   :type 'boolean)
- 
+
 (defcustom org-agenda-weekend-days '(6 0)
   "Which days are weekend?
 These days get the special face `org-agenda-date-weekend' in the agenda
@@ -3425,7 +3425,7 @@ as a whole, to incude whitespace.
   that can also be achieved with a prefix argument.
 - If (possibly after star and exclamation mark) the search string starts
   with a colon, this will mean that the (non-regexp) snippets of the
-  Boolean search must match as full words. 
+  Boolean search must match as full words.
 
 This command searches the agenda files, and in addition the files listed
 in `org-agenda-text-search-extra-files'."
@@ -4086,6 +4086,8 @@ Needed to avoid empty dates which mess up holiday display."
       (apply 'diary-add-to-list args)
     (apply 'add-to-diary-list args)))
 
+(defvar org-diary-last-run-time nil)
+
 ;;;###autoload
 (defun org-diary (&rest args)
   "Return diary information from org-files.
@@ -4123,8 +4125,14 @@ function from a program - use `org-agenda-get-day-entries' instead."
   (let* ((files (if (and entry (stringp entry) (string-match "\\S-" entry))
 		    (list entry)
 		  (org-agenda-files t)))
+	 (time (org-float-time))
 	 file rtn results)
-    (org-prepare-agenda-buffers files)
+    (when (or (not org-diary-last-run-time)
+	      (> (- time
+		    org-diary-last-run-time)
+		 3))
+      (org-prepare-agenda-buffers files))
+    (setq org-diary-last-run-time time)
     ;; If this is called during org-agenda, don't return any entries to
     ;; the calendar.  Org Agenda will list these entries itself.
     (if org-disable-agenda-to-diary (setq files nil))

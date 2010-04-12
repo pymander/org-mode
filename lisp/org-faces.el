@@ -1,12 +1,12 @@
 ;;; org-faces.el --- Face definitions for Org-mode.
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -49,7 +49,7 @@
 (defgroup org-faces nil
   "Faces in Org-mode."
   :tag "Org Faces"
-  :group 'org-font-lock)
+  :group 'org-appearance)
 
 (defface org-hide
   '((((background light)) (:foreground "white"))
@@ -468,6 +468,34 @@ changes."
   :group 'org-faces
   :version "22.1")
 
+(defface org-document-title
+  '((((class color) (background light)) (:foreground "midnight blue" :weight bold :height 1.44))
+    (((class color) (background dark)) (:foreground "pale turquoise" :weight bold :height 1.44))
+    (t (:weight bold :height 1.44)))
+  "Face for document title, i.e. that which follows the #+TITLE: keyword."
+  :group 'org-faces)
+
+(defface org-document-info
+  '((((class color) (background light)) (:foreground "midnight blue"))
+    (((class color) (background dark)) (:foreground "pale turquoise"))
+    (t nil))
+  "Face for document date, author and email; i.e. that which
+follows a #+DATE:, #+AUTHOR: or #+EMAIL: keyword."
+  :group 'org-faces)
+
+(defface org-document-info-keyword
+  (org-compatible-face 'shadow
+    '((((class color grayscale) (min-colors 88) (background light))
+       (:foreground "grey50"))
+      (((class color grayscale) (min-colors 88) (background dark))
+       (:foreground "grey70"))
+      (((class color) (min-colors 8) (background light))
+       (:foreground "green"))
+      (((class color) (min-colors 8) (background dark))
+       (:foreground "yellow"))))
+  "Face for #+TITLE:, #+AUTHOR:, #+EMAIL: and #+DATE: keywords."
+  :group 'org-faces)
+
 (defface org-block
   (org-compatible-face 'shadow
     '((((class color grayscale) (min-colors 88) (background light))
@@ -675,7 +703,7 @@ If it is less than 8, the level-1 face gets re-used for level N+1 etc."
 
 (org-copy-face 'modeline 'org-mode-line-clock
   "Face used for clock display in mode line.")
-(org-copy-face 'modeline 'org-mode-line-clock-overrun 
+(org-copy-face 'modeline 'org-mode-line-clock-overrun
   "Face used for clock display for overrun tasks in mode line."
   :background "red")
 

@@ -1,3 +1,32 @@
+2010-04-12  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Repeated tasks): Document that the user can determine
+	the target state.
+
+2010-04-07  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (LaTeX and PDF export): Add a footnote about xetex.
+
+2010-04-05  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (LaTeX/PDF export commands): Section renamed and
+	moved.
+
+2010-04-04  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Sectioning structure): Update.
+	(References): New use case for field coordinates.
+
+2010-04-01  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (The export dispatcher): Renamed from ASCII export.
+	(Setting up the staging area): Document the availability of
+	encryption for MobileOrg.
+
+2010-03-29  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Images and tables): Document how to reference labels.
+
 2010-03-28  Carsten Dominik  <carsten.dominik@gmail.com>
 
 	* org.texi (Index entries): New section.

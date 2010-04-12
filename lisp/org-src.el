@@ -1,6 +1,6 @@
 ;;; org-src.el --- Source code examples in Org
 ;;
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ;;   Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
@@ -8,7 +8,7 @@
 ;;         Dan Davison <davison at stats dot ox dot ac dot uk>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.34trans
+;; Version: 6.35g
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -192,7 +192,7 @@ There is a mode hook, and keybindings for `org-edit-src-exit' and
 The example is copied to a separate buffer, and that buffer is switched
 to the correct language mode.  When done, exit with \\[org-edit-src-exit].
 This will remove the original code in the Org buffer, and replace it with
-the edited version. Optional argument CONTEXT is used by 
+the edited version. Optional argument CONTEXT is used by
 \\[org-edit-src-save] when calling this function."
   (interactive)
   (unless (eq context 'save)
