@@ -84,6 +84,9 @@ If unset only publish link to content."
   :type 'boolean
   :group 'org-export-atom)
 
+(defcustom org-atom-try-prepare-headline-git nil
+  "When non-nil, try to get headline creating date with git.")
+
 ;;;###autoload
 (defun org-export-as-atom (&optional ext-plist to-buffer body-only pub-dir)
   "Export outline as atom feed.
@@ -385,7 +388,8 @@ If POM is ommited, prepare headline at point."
 			       (substring
 				(format-time-string
 				 (cdr org-time-stamp-formats)
-				 (or (org-atom-prepare-headline-try-git)
+				 (or (if org-atom-try-prepare-headline-git
+					 (org-atom-prepare-headline-try-git))
 				     (current-time)))
 				1 -1) "]"))))))
 
