@@ -1463,10 +1463,9 @@ you can use this variable to set the application for a given file
 extension.  The entries in this list are cons cells where the car identifies
 files and the cdr the corresponding command.  Possible values for the
 file identifier are
- \"regex\"       Regular expression matched against the file: link.  For
-               backward compatibility, this can also be a string with only
-               alphanumeric characters, which is then interpreted as an
-               extension.
+ \"regex\"     Regular expression matched against the file name.  For backward
+               compatibility, this can also be a string with only alphanumeric
+               characters, which is then interpreted as an extension.
  `directory'   Matches a directory
  `remote'      Matches a remote file, accessible through tramp or efs.
                Remote files most likely should be visited through Emacs
@@ -1495,13 +1494,9 @@ Possible values for the command are:
                does define this command, but you can overrule/replace it
                here.
  string        A command to be executed by a shell; %s will be replaced
-               by the path to the file.  If the file identifier is a regex,
-               %n will be replaced by the match of the nth match group.
+               by the path to the file.
  sexp          A Lisp form which will be evaluated.  The file path will
-               be available in the Lisp variable `file', the link itself
-               in the Lisp variable `link'. If the file identifier is a regex,
-               the original match data will be restored, so subexpression
-               matches are accessible using (match-string n link).
+               be available in the Lisp variable `file'.
 For more examples, see the system specific constants
 `org-file-apps-defaults-macosx'
 `org-file-apps-defaults-windowsnt'
@@ -1522,6 +1517,8 @@ For more examples, see the system specific constants
 			(const :tag "Use the system command" system)
 			(string :tag "Command")
 			(sexp :tag "Lisp form")))))
+
+
 
 (defgroup org-refile nil
   "Options concerning refiling entries in Org-mode."
@@ -2971,7 +2968,7 @@ will be appended."
 Change this only if one of the packages here causes an incompatibility
 with another package you are using.
 The packages in this list are needed by one part or another of Org-mode
-to function properly.  
+to function properly.
 
 - inputenc, fontenc, t1enc: for basic font and character selection
 - textcomp, marvosymb, wasysym, latexsym, amssym: for various symbols used
@@ -2988,7 +2985,7 @@ some other package that conflicts with one of the default packages.
 Each cell is of the format \( \"options\" \"package\" \)."
   :group 'org-export-latex
   :type '(repeat
-	  (choice 
+	  (choice
 	   (string :tag "A line of LaTeX")
 	   (list :tag "options/package pair"
 		 (string :tag "options")
@@ -3005,7 +3002,7 @@ Make sure that you only lis packages here which:
 - do not conflict with the setup in `org-format-latex-header'."
   :group 'org-export-latex
   :type '(repeat
-	  (choice 
+	  (choice
 	   (string :tag "A line of LaTeX")
 	   (list :tag "options/package pair"
 		 (string :tag "options")
@@ -9136,17 +9133,19 @@ With optional prefix argument IN-EMACS, Emacs will visit the file.
 With a double C-c C-u prefix arg, Org tries to avoid opening in Emacs
 and to use an external application to visit the file.
 
-Optional LINE specifies a line to go to, optional SEARCH a string to
-search for.  If LINE or SEARCH is given, but IN-EMACS is nil, it will
-be assumed that org-open-file was called to open a file: link, and the
-original link to match against org-file-apps will be reconstructed
-from PATH and whichever of LINE or SEARCH is given.
-
+Optional LINE specifies a line to go to, optional SEARCH a string
+to search for.  If LINE or SEARCH is given, the file will be
+opened in Emacs, unless an entry from org-file-apps that makes
+use of groups in a regexp matches.
 If the file does not exist, an error is thrown."
   (let* ((file (if (equal path "")
 		   buffer-file-name
 		 (substitute-in-file-name (expand-file-name path))))
-	 (apps (append org-file-apps (org-default-apps)))
+	 (file-apps (append org-file-apps (org-default-apps)))
+	 (apps (org-remove-if
+		'org-file-apps-entry-match-against-dlink-p file-apps))
+	 (apps-dlink (org-remove-if-not
+		      'org-file-apps-entry-match-against-dlink-p file-apps))
 	 (remp (and (assq 'remote apps) (org-file-remote-p file)))
 	 (dirp (if remp nil (file-directory-p file)))
 	 (file (if (and dirp org-open-directory-means-index-dot-org)
@@ -9178,21 +9177,19 @@ If the file does not exist, an error is thrown."
      (t
       (setq cmd (or (and remp (cdr (assoc 'remote apps)))
 		    (and dirp (cdr (assoc 'directory apps)))
-		    ;; if we find a match in org-file-apps, store the match
-		    ;; data for later
-		    (let* ((re-list1 (org-apps-regexp-alist apps nil))
-			   (re-list2 
-			    (if a-m-a-p
-				(org-apps-regexp-alist apps a-m-a-p)
-			      re-list1))
-			   (private-match
-			    (assoc-default dlink re-list1 'string-match))
-			   (general-match
-			    (assoc-default dfile re-list2 'string-match)))
-		      (if private-match
+		    ; first, try matching against apps-dlink
+		    ; if we get a match here, store the match data for later
+		    (let ((match (assoc-default dlink apps-dlink
+						'string-match)))
+		      (if match
 			  (progn (setq link-match-data (match-data))
-				 private-match)
-			general-match))
+				 match)
+			(progn (setq in-emacs (or in-emacs line search))
+			       nil))) ; if we have no match in apps-dlink,
+		                      ; always open the file in emacs if line or search
+		                      ; is given (for backwards compatibility)
+		    (assoc-default dfile (org-apps-regexp-alist apps a-m-a-p)
+				   'string-match)
 		    (cdr (assoc ext apps))
 		    (cdr (assoc t apps))))))
     (when (eq cmd 'system)
@@ -9222,6 +9219,7 @@ If the file does not exist, an error is thrown."
 		     (shell-quote-argument
 		      (convert-standard-filename file)))
 		   t t cmd)))
+
       ;; Replace "%1", "%2" etc. in command with group matches from regex
       (save-match-data
 	(let ((match-index 1)
@@ -9255,6 +9253,25 @@ If the file does not exist, an error is thrown."
 	     (not (equal old-pos (point))))
 	 (org-mark-ring-push old-pos old-buffer))))
 
+(defun org-file-apps-entry-match-against-dlink-p (entry)
+  "This function returns non-nil if `entry' uses a regular
+expression which should be matched against the whole link by
+org-open-file.
+
+It assumes that is the case when the entry uses a regular
+expression which has at least one grouping construct and the
+action is either a lisp form or a command string containing
+'%1', i.e. using at least one subexpression match as a
+parameter."
+  (let ((selector (car entry))
+	(action (cdr entry)))
+    (if (stringp selector)
+	(and (> (regexp-opt-depth selector) 0)
+	     (or (and (stringp action)
+		      (string-match "%[0-9]" action))
+		 (consp action)))
+      nil)))
+
 (defun org-default-apps ()
   "Return the default applications for this operating system."
   (cond
@@ -9278,8 +9295,7 @@ be opened in Emacs."
 		       nil
 		     (if (string-match "\\W" (car x))
 			 x
-		       (cons (concat "\\." (car x) "\\(::.*\\)?\\'")
-			     (cdr x)))))
+		       (cons (concat "\\." (car x) "\\'") (cdr x)))))
 		 list))
    (if add-auto-mode
        (mapcar (lambda (x) (cons (car x) 'emacs)) auto-mode-alist))))
@@ -10852,8 +10868,9 @@ This function is run automatically after each state change to a DONE state."
       (unless (and to-state (member to-state org-todo-keywords-1))
 	(setq to-state (if (eq interpret 'type) last-state head)))
       (org-todo to-state)
-      (org-entry-put nil "LAST_REPEAT" (format-time-string
-					(org-time-stamp-format t t)))
+      (when (or org-log-repeat (org-entry-get nil "CLOCK"))
+	(org-entry-put nil "LAST_REPEAT" (format-time-string
+					  (org-time-stamp-format t t))))
       (when org-log-repeat
 	(if (or (memq 'org-add-log-note (default-value 'post-command-hook))
 		(memq 'org-add-log-note post-command-hook))
@@ -12154,6 +12171,16 @@ If DATA is nil or the empty string, any tags will be removed."
       (beginning-of-line 1)
       (if (looking-at ".*?\\([ \t]+\\)$")
 	  (delete-region (match-beginning 1) (match-end 1))))))
+
+(defun org-align-all-tags ()
+  "Align the tags i all headings."
+  (interactive)
+  (save-excursion
+    (or (ignore-errors (org-back-to-heading t))
+	(outline-next-heading))
+    (if (org-on-heading-p)
+	(org-set-tags t)
+      (message "No headings"))))
 
 (defun org-set-tags (&optional arg just-align)
   "Set the tags for the current headline.
@@ -15333,7 +15360,7 @@ In the template, the following place holders will be recognized:
 
  [DEFAULT-PACKAGES]      \\usepackage statements for DEF-PKG
  [NO-DEFAULT-PACKAGES]   do not include DEF-PKG
- [PACKAGES]              \\usepackage statements for PKG 
+ [PACKAGES]              \\usepackage statements for PKG
  [NO-PACKAGES]           do not include PKG
  [EXTRA]                 the string EXTRA
  [NO-EXTRA]              do not include EXTRA
@@ -15349,7 +15376,7 @@ EXTRA is a string."
 		      "" (org-latex-packages-to-string def-pkg t))
 	      tpl (replace-match rpl t t tpl))
       (if def-pkg (setq end (org-latex-packages-to-string def-pkg))))
-    
+
     (if (string-match "\\[\\(NO-\\)?PACKAGES\\][ \t]*\n?" tpl)
 	(setq rpl (if (or (match-end 1) (not pkg))
 		      "" (org-latex-packages-to-string pkg t))
@@ -16297,7 +16324,7 @@ This command does many different things, depending on context:
 	   (fboundp org-finish-function))
       (funcall org-finish-function))
      ((run-hook-with-args-until-success 'org-ctrl-c-ctrl-c-hook))
-     ((or (looking-at (org-re org-property-start-re))
+     ((or (looking-at org-property-start-re)
 	  (org-at-property-p))
       (call-interactively 'org-property-action))
      ((org-on-target-p) (call-interactively 'org-update-radio-target-regexp))
@@ -17408,6 +17435,22 @@ for the search purpose."
   (while elts
     (setq list (delete (pop elts) list)))
   list)
+
+(defun org-remove-if (predicate seq)
+  "Remove everything from SEQ that fulfills PREDICATE."
+  (let (res e)
+    (while seq
+      (setq e (pop seq))
+      (if (not (funcall predicate e)) (push e res)))
+    (nreverse res)))
+
+(defun org-remove-if-not (predicate seq)
+  "Remove everything from SEQ that does not fulfill PREDICATE."
+  (let (res e)
+    (while seq
+      (setq e (pop seq))
+      (if (funcall predicate e) (push e res)))
+    (nreverse res)))
 
 (defun org-back-over-empty-lines ()
   "Move backwards over whitespace, to the beginning of the first empty line.
