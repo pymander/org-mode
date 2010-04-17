@@ -53,6 +53,8 @@
 ;;               (local-set-key "\C-c\M-o" 'org-mime-org-buffer-htmlize)))
 
 ;;; Code:
+(require 'cl)
+
 (defcustom org-mime-default-header
   "#+OPTIONS: latex:t\n"
   "Default header to control html export options, and ensure
@@ -103,9 +105,15 @@
     ('mml (format
            "<#part type=\"%s\" filename=\"%s\" id=\"<%s>\">\n<#/part>\n"
            ext path id))
-    ('semi (format
-            "--[[application/octet-stream; type=%s\nContent-ID: %s; filename=\"%s\"][base64]]"
-            ext id path))
+    ('semi (concat
+            (format
+             "--[[%s\nContent-Disposition: inline;\nContent-ID: <%s>][base64]]\n"
+             ext id)
+            (base64-encode-string
+             (with-temp-buffer
+               (set-buffer-multibyte nil)
+               (binary-insert-encoded-file path)
+               (buffer-string)))))
     ('vm "?")))
 
 (defun org-mime-multipart (plain html)
@@ -115,9 +123,11 @@
     ('mml (format (concat "<#multipart type=alternative><#part type=text/plain>"
                           "%s<#part type=text/html>%s<#/multipart>\n")
                   plain html))
-    ('semi (format (concat "--<<alternative>>-{\n--[[text/plain;%s\n--]]\n"
-                           "--[[text/html;%s\n--]]\n--}-<<alternative>>\n")
-                   plain html))
+    ('semi (concat
+            "--" "<<alternative>>-{\n"
+            "--" "[[text/plain]]\n" plain
+            "--" "[[text/html]]\n"  html
+            "--" "}-<<alternative>>\n"))
     ('vm "?")))
 
 (defun org-mime-replace-images (str current-file)
@@ -199,12 +209,13 @@ TMP-FILE during export."
        (if (string= fmt "org") (length org-mime-default-header) 0)))))
 
 (defun org-mime-apply-html-hook (html)
-  (when org-mime-html-hook
-    (with-temp-buffer
-      (insert html)
-      (goto-char (point-min))
-      (run-hooks 'org-mime-html-hook)
-      (buffer-string))))
+  (if org-mime-html-hook
+      (with-temp-buffer
+        (insert html)
+        (goto-char (point-min))
+        (run-hooks 'org-mime-html-hook)
+        (buffer-string))
+    html))
 
 (defun org-mime-org-buffer-htmlize ()
   "Export the current org-mode buffer to HTML using

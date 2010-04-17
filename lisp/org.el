@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.35g
+;; Version: 6.35trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -96,7 +96,7 @@
 
 ;;; Version
 
-(defconst org-version "6.35g"
+(defconst org-version "6.35trans"
   "The version number of the file org.el.")
 
 (defun org-version (&optional here)
@@ -9957,7 +9957,7 @@ This function can be used in a hook."
     )
   "Structure completion elements.
 This is a list of abbreviation keys and values.  The value gets inserted
-it you type @samp{.} followed by the key and then the completion key,
+if you type < followed by the key and then press the completion key,
 usually `M-TAB'.  %file will be replaced by a file name after prompting
 for the file using completion.
 There are two templates for each key, the first uses the original Org syntax,
