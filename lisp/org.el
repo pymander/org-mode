@@ -72,8 +72,19 @@
 
 (eval-when-compile
   (require 'cl)
-  (require 'gnus-sum)
-  (require 'calendar))
+  (require 'gnus-sum))
+
+(require 'calendar)
+;; Emacs 22 calendar compatibility:  Make sure the new variables are available
+(unless (boundp 'calendar-view-holidays-initially-flag)
+  (defvaralias 'calendar-view-holidays-initially-flag
+    'view-calendar-holidays-initially))
+(unless (boundp 'calendar-view-diary-initially-flag)
+  (defvaralias 'calendar-view-diary-initially-flag
+    'view-diary-entries-initially))
+(unless (boundp 'diary-fancy-buffer)
+  (defvaralias 'diary-fancy-buffer 'fancy-diary-buffer))
+
 ;; For XEmacs, noutline is not yet provided by outline.el, so arrange for
 ;; the file noutline.el being loaded.
 (if (featurep 'xemacs) (condition-case nil (require 'noutline)))
@@ -83,6 +94,7 @@
 (require 'time-date)
 (unless (fboundp 'time-subtract) (defalias 'time-subtract 'subtract-time))
 (require 'easymenu)
+(require 'overlay)
 
 (require 'org-macs)
 (require 'org-entities)
@@ -405,14 +417,17 @@ therefore you'll have to restart Emacs to apply it after changing."
 
 (defun org-key (key)
   "Select key according to `org-replace-disputed-keys' and `org-disputed-keys'.
-Or return the original if not disputed."
-  (if org-replace-disputed-keys
-      (let* ((nkey (key-description key))
-	     (x (org-find-if (lambda (x)
-			       (equal (key-description (car x)) nkey))
-			     org-disputed-keys)))
-	(if x (cdr x) key))
-    key))
+Or return the original if not disputed.
+Also apply the trnaslations defined in `org-xemacs-key-equivalents'."
+  (when org-replace-disputed-keys
+    (let* ((nkey (key-description key))
+	   (x (org-find-if (lambda (x)
+			     (equal (key-description (car x)) nkey))
+			   org-disputed-keys)))
+      (setq key (if x (cdr x) key))))
+  (when (featurep 'xemacs)
+    (setq key (or (cdr (assoc key org-xemacs-key-equivalents)) key)))
+  key)
 
 (defun org-find-if (predicate seq)
   (catch 'exit
@@ -3277,6 +3292,7 @@ Normal means no org-mode-specific context."
 (declare-function org-indent-mode "org-indent" (&optional arg))
 (declare-function parse-time-string "parse-time" (string))
 (declare-function org-attach-reveal "org-attach" (&optional if-exists))
+(declare-function org-export-latex-fix-inputenc "org-latex" ())
 (defvar remember-data-file)
 (defvar texmathp-why)
 (declare-function speedbar-line-directory "speedbar" (&optional depth))
@@ -4340,7 +4356,7 @@ The following commands are available:
   ;; we switch another buffer into org-mode.
   (if (featurep 'xemacs)
       (when (boundp 'outline-mode-menu-heading)
-	;; Assume this is Greg's port, it used easymenu
+	;; Assume this is Greg's port, it uses easymenu
 	(easy-menu-remove outline-mode-menu-heading)
 	(easy-menu-remove outline-mode-menu-show)
 	(easy-menu-remove outline-mode-menu-hide))
@@ -4352,9 +4368,9 @@ The following commands are available:
   (easy-menu-add org-org-menu)
   (easy-menu-add org-tbl-menu)
   (org-install-agenda-files-menu)
-  (if org-descriptive-links (org-add-to-invisibility-spec '(org-link)))
-  (org-add-to-invisibility-spec '(org-cwidth))
-  (org-add-to-invisibility-spec '(org-hide-block . t))
+  (if org-descriptive-links (add-to-invisibility-spec '(org-link)))
+  (add-to-invisibility-spec '(org-cwidth))
+  (add-to-invisibility-spec '(org-hide-block . t))
   (when (featurep 'xemacs)
     (org-set-local 'line-move-ignore-invisible t))
   (org-set-local 'outline-regexp org-outline-regexp)
@@ -4467,10 +4483,8 @@ The following commands are available:
 ;;;; Font-Lock stuff, including the activators
 
 (defvar org-mouse-map (make-sparse-keymap))
-(org-defkey org-mouse-map
-  (if (featurep 'xemacs) [button2] [mouse-2]) 'org-open-at-mouse)
-(org-defkey org-mouse-map
-  (if (featurep 'xemacs) [button3] [mouse-3]) 'org-find-file-at-mouse)
+(org-defkey org-mouse-map [mouse-2] 'org-open-at-mouse)
+(org-defkey org-mouse-map [mouse-3] 'org-find-file-at-mouse)
 (when org-mouse-1-follows-link
   (org-defkey org-mouse-map [follow-link] 'mouse-face))
 (when org-tab-follows-link
@@ -5468,7 +5482,6 @@ in special contexts.
 	  (while (and (not (eobp)) ;; this is like `next-line'
 		      (get-char-property (1- (point)) 'invisible))
 	    (goto-char (next-single-char-property-change (point) 'invisible))
-;;;???	    (or (bolp) (beginning-of-line 2))))
 	    (and (eolp) (beginning-of-line 2))))
 	(setq eol (point)))
       (outline-end-of-heading)   (setq eoh (point))
@@ -5643,11 +5656,11 @@ This function is the default value of the hook `org-cycle-hook'."
   "Remove outline overlays that do not contain non-white stuff."
   (mapc
    (lambda (o)
-     (and (eq 'outline (org-overlay-get o 'invisible))
-	  (not (string-match "\\S-" (buffer-substring (org-overlay-start o)
-							(org-overlay-end o))))
-	  (org-delete-overlay o)))
-   (org-overlays-at pos)))
+     (and (eq 'outline (overlay-get o 'invisible))
+	  (not (string-match "\\S-" (buffer-substring (overlay-start o)
+						      (overlay-end o))))
+	  (delete-overlay o)))
+   (overlays-at pos)))
 
 (defun org-clean-visibility-after-subtree-move ()
   "Fix visibility issues after moving a subtree."
@@ -5809,15 +5822,15 @@ If USE-MARKERS is set, return the positions as markers."
 	(widen)
 	(delq nil
 	      (mapcar (lambda (o)
-			(when (eq (org-overlay-get o 'invisible) 'outline)
-			  (setq beg (org-overlay-start o)
-				end (org-overlay-end o))
+			(when (eq (overlay-get o 'invisible) 'outline)
+			  (setq beg (overlay-start o)
+				end (overlay-end o))
 			  (and beg end (> end beg)
 			       (if use-markers
 				   (cons (move-marker (make-marker) beg)
 					 (move-marker (make-marker) end))
 				 (cons beg end)))))
-		      (org-overlays-in (point-min) (point-max))))))))
+		      (overlays-in (point-min) (point-max))))))))
 
 (defun org-set-outline-overlay-data (data)
   "Create visibility overlays for all positions in DATA.
@@ -5828,8 +5841,8 @@ DATA should have been made by `org-outline-overlay-data'."
 	(widen)
 	(show-all)
 	(mapc (lambda (c)
-		(setq o (org-make-overlay (car c) (cdr c)))
-		(org-overlay-put o 'invisible 'outline))
+		(setq o (make-overlay (car c) (cdr c)))
+		(overlay-put o 'invisible 'outline))
 	      data)))))
 
 (defmacro org-save-outline-visibility (use-markers &rest body)
@@ -5888,7 +5901,7 @@ the range."
 
 (defun org-show-block-all ()
   "Unfold all blocks in the current buffer."
-  (mapc 'org-delete-overlay org-hide-block-overlays)
+  (mapc 'delete-overlay org-hide-block-overlays)
   (setq org-hide-block-overlays nil))
 
 (defun org-hide-block-toggle-maybe ()
@@ -5912,30 +5925,30 @@ the range."
               (end (match-end 0)) ;; end of entire body
               ov)
           (if (memq t (mapcar (lambda (overlay)
-                                (eq (org-overlay-get overlay 'invisible)
+                                (eq (overlay-get overlay 'invisible)
 				    'org-hide-block))
-                              (org-overlays-at start)))
+                              (overlays-at start)))
               (if (or (not force) (eq force 'off))
                   (mapc (lambda (ov)
                           (when (member ov org-hide-block-overlays)
                             (setq org-hide-block-overlays
                                   (delq ov org-hide-block-overlays)))
-                          (when (eq (org-overlay-get ov 'invisible)
+                          (when (eq (overlay-get ov 'invisible)
                                     'org-hide-block)
-                            (org-delete-overlay ov)))
-                        (org-overlays-at start)))
-            (setq ov (org-make-overlay start end))
-            (org-overlay-put ov 'invisible 'org-hide-block)
+                            (delete-overlay ov)))
+                        (overlays-at start)))
+            (setq ov (make-overlay start end))
+            (overlay-put ov 'invisible 'org-hide-block)
             ;; make the block accessible to isearch
-            (org-overlay-put
+            (overlay-put
              ov 'isearch-open-invisible
              (lambda (ov)
                (when (member ov org-hide-block-overlays)
                  (setq org-hide-block-overlays
                        (delq ov org-hide-block-overlays)))
-               (when (eq (org-overlay-get ov 'invisible)
+               (when (eq (overlay-get ov 'invisible)
                          'org-hide-block)
-                 (org-delete-overlay ov))))
+                 (delete-overlay ov))))
             (push ov org-hide-block-overlays)))
       (error "Not looking at a source block"))))
 
@@ -9648,8 +9661,7 @@ See also `org-refile-use-outline-path' and `org-completion-use-ido'"
 	  (when (featurep 'org-inlinetask)
 	    (org-inlinetask-remove-END-maybe))
 	  (setq org-markers-to-move nil)
-	  (message "Refiled to \"%s\"" (car it))))))
-  (org-reveal))
+	  (message "Refiled to \"%s\"" (car it)))))))
 
 (defun org-refile-goto-last-stored ()
   "Go to the location where the last refile was stored."
@@ -9957,7 +9969,7 @@ This function can be used in a hook."
     )
   "Structure completion elements.
 This is a list of abbreviation keys and values.  The value gets inserted
-if you type < followed by the key and then press the completion key,
+if you type `<' followed by the key and then press the completion key,
 usually `M-TAB'.  %file will be replaced by a file name after prompting
 for the file using completion.
 There are two templates for each key, the first uses the original Org syntax,
@@ -11506,8 +11518,8 @@ entire tree."
 
 (defun org-highlight-new-match (beg end)
   "Highlight from BEG to END and mark the highlight is an occur headline."
-  (let ((ov (org-make-overlay beg end)))
-    (org-overlay-put ov 'face 'secondary-selection)
+  (let ((ov (make-overlay beg end)))
+    (overlay-put ov 'face 'secondary-selection)
     (push ov org-occur-highlights)))
 
 (defun org-remove-occur-highlights (&optional beg end noremove)
@@ -11516,7 +11528,7 @@ BEG and END are ignored.  If NOREMOVE is nil, remove this function
 from the `before-change-functions' in the current buffer."
   (interactive)
   (unless org-inhibit-highlight-removal
-    (mapc 'org-delete-overlay org-occur-highlights)
+    (mapc 'delete-overlay org-occur-highlights)
     (setq org-occur-highlights nil)
     (setq org-occur-parameters nil)
     (unless noremove
@@ -12019,7 +12031,7 @@ epoch to the beginning of today (00:00)."
   (delq nil list))
 
 (defvar org-add-colon-after-tag-completion nil)  ;; dynamically scoped param
-(defvar org-tags-overlay (org-make-overlay 1 1))
+(defvar org-tags-overlay (make-overlay 1 1))
 (org-detach-overlay org-tags-overlay)
 
 (defun org-get-local-tags-at (&optional pos)
@@ -12395,7 +12407,7 @@ Returns the new tags string, or nil to not change the current settings."
 	       (if (> (current-column) org-tags-column)
 		   " "
 		 (make-string (- org-tags-column (current-column)) ?\ ))))))
-    (org-move-overlay org-tags-overlay ov-start ov-end)
+    (move-overlay org-tags-overlay ov-start ov-end)
     (save-window-excursion
       (if expert
 	  (set-buffer (get-buffer-create " *Org tags*"))
@@ -13476,8 +13488,8 @@ So these are more for recording a certain time/date."
   (interactive "P")
   (org-time-stamp arg 'inactive))
 
-(defvar org-date-ovl (org-make-overlay 1 1))
-(org-overlay-put org-date-ovl 'face 'org-warning)
+(defvar org-date-ovl (make-overlay 1 1))
+(overlay-put org-date-ovl 'face 'org-warning)
 (org-detach-overlay org-date-ovl)
 
 (defvar org-ans1) ; dynamically scoped parameter
@@ -13556,9 +13568,7 @@ user."
 	 (calendar-frame-setup nil)
 	 (calendar-move-hook nil)
 	 (calendar-view-diary-initially-flag nil)
-	 (view-diary-entries-initially nil)
 	 (calendar-view-holidays-initially-flag nil)
-	 (view-calendar-holidays-initially nil)
 	 (timestr (format-time-string
 		   (if with-time "%Y-%m-%d %H:%M" "%Y-%m-%d") def))
 	 (prompt (concat (if prompt (concat prompt " ") "")
@@ -13579,10 +13589,8 @@ user."
 		 (map (copy-keymap calendar-mode-map))
 		 (minibuffer-local-map (copy-keymap minibuffer-local-map)))
 	    (org-defkey map (kbd "RET") 'org-calendar-select)
-	    (org-defkey map (if (featurep 'xemacs) [button1] [mouse-1])
-			'org-calendar-select-mouse)
-	    (org-defkey map (if (featurep 'xemacs) [button2] [mouse-2])
-			'org-calendar-select-mouse)
+	    (org-defkey map [mouse-1] 'org-calendar-select-mouse)
+	    (org-defkey map [mouse-2] 'org-calendar-select-mouse)
 	    (org-defkey minibuffer-local-map [(meta shift left)]
 			(lambda () (interactive)
 			  (org-eval-in-calendar '(calendar-backward-month 1))))
@@ -13639,7 +13647,7 @@ user."
 	      (remove-hook 'post-command-hook 'org-read-date-display)
 	      (use-local-map old-map)
 	      (when org-read-date-overlay
-		(org-delete-overlay org-read-date-overlay)
+		(delete-overlay org-read-date-overlay)
 		(setq org-read-date-overlay nil)))))))
 
      (t ; Naked prompt only
@@ -13647,7 +13655,7 @@ user."
 	  (setq ans (read-string prompt default-input
 				 'org-read-date-history timestr))
 	(when org-read-date-overlay
-	  (org-delete-overlay org-read-date-overlay)
+	  (delete-overlay org-read-date-overlay)
 	  (setq org-read-date-overlay nil)))))
 
     (setq final (org-read-date-analyze ans def defdecode))
@@ -13669,7 +13677,7 @@ user."
   "Display the current date prompt interpretation in the minibuffer."
   (when org-read-date-display-live
     (when org-read-date-overlay
-      (org-delete-overlay org-read-date-overlay))
+      (delete-overlay org-read-date-overlay))
     (let ((p (point)))
       (end-of-line 1)
       (while (not (equal (buffer-substring
@@ -13697,7 +13705,7 @@ user."
       (when org-read-date-analyze-futurep
 	(setq txt (concat txt " (=>F)")))
       (setq org-read-date-overlay
-	    (org-make-overlay (1- (point-at-eol)) (point-at-eol)))
+	    (make-overlay (1- (point-at-eol)) (point-at-eol)))
       (org-overlay-display org-read-date-overlay txt 'secondary-selection))))
 
 (defun org-read-date-analyze (ans def defdecode)
@@ -13933,7 +13941,7 @@ Also, store the cursor date in variable org-ans2."
       (let* ((date (calendar-cursor-to-date))
 	     (time (encode-time 0 0 0 (nth 1 date) (nth 0 date) (nth 2 date))))
 	(setq org-ans2 (format-time-string "%Y-%m-%d" time))))
-    (org-move-overlay org-date-ovl (1- (point)) (1+ (point)) (current-buffer))
+    (move-overlay org-date-ovl (1- (point)) (1+ (point)) (current-buffer))
     (select-window sw)
     (org-select-frame-set-input-focus sf)))
 
@@ -14618,9 +14626,7 @@ A prefix ARG can be used to force the current date."
   (let ((tsr org-ts-regexp) diff
 	(calendar-move-hook nil)
 	(calendar-view-holidays-initially-flag nil)
-	(view-calendar-holidays-initially nil)
-	(calendar-view-diary-initially-flag nil)
-	(view-diary-entries-initially nil))
+	(calendar-view-diary-initially-flag nil))
     (if (or (org-at-timestamp-p)
 	    (save-excursion
 	      (beginning-of-line 1)
@@ -15153,7 +15159,7 @@ Revert to the normal definition outside of these fragments."
 
 (defun org-remove-latex-fragment-image-overlays ()
   "Remove all overlays with LaTeX fragment images in current buffer."
-  (mapc 'org-delete-overlay org-latex-fragment-image-overlays)
+  (mapc 'delete-overlay org-latex-fragment-image-overlays)
   (setq org-latex-fragment-image-overlays nil))
 
 (defun org-preview-latex-fragment (&optional subtree)
@@ -15271,19 +15277,19 @@ Some of the options can be changed using the variable
 	    (if overlays
 		(progn
 		  (mapc (lambda (o)
-			  (if (eq (org-overlay-get o 'org-overlay-type)
+			  (if (eq (overlay-get o 'org-overlay-type)
 				  'org-latex-overlay)
-			      (org-delete-overlay o)))
-			(org-overlays-in beg end))
-		  (setq ov (org-make-overlay beg end))
-		  (org-overlay-put ov 'org-overlay-type 'org-latex-overlay)
+			      (delete-overlay o)))
+			(overlays-in beg end))
+		  (setq ov (make-overlay beg end))
+		  (overlay-put ov 'org-overlay-type 'org-latex-overlay)
 		  (if (featurep 'xemacs)
 		      (progn
-			(org-overlay-put ov 'invisible t)
-			(org-overlay-put
+			(overlay-put ov 'invisible t)
+			(overlay-put
 			 ov 'end-glyph
 			 (make-glyph (vector 'png :file movefile))))
-		    (org-overlay-put
+		    (overlay-put
 		     ov 'display
 		     (list 'image :type 'png :file movefile :ascent 'center)))
 		  (push ov org-latex-fragment-image-overlays)
@@ -16678,7 +16684,7 @@ See the individual commands for more information."
      ["Previous link" org-previous-link t]
      "--"
      ["Descriptive Links"
-      (progn (org-add-to-invisibility-spec '(org-link)) (org-restart-font-lock))
+      (progn (add-to-invisibility-spec '(org-link)) (org-restart-font-lock))
       :style radio
       :selected (member '(org-link) buffer-invisibility-spec)]
      ["Literal Links"
@@ -16993,9 +16999,7 @@ With prefix arg UNCOMPILED, load the uncompiled versions."
   "Display the given MESSAGE as a warning."
   (if (fboundp 'display-warning)
       (display-warning 'org message
-                       (if (featurep 'xemacs)
-                           'warning
-                         :warning))
+                       (if (featurep 'xemacs) 'warning :warning))
     (let ((buf (get-buffer-create "*Org warnings*")))
       (with-current-buffer buf
         (goto-char (point-max))
@@ -17316,11 +17320,11 @@ and :keyword."
 			 (mapcar
 			  (lambda (x)
 			    (if (memq x org-latex-fragment-image-overlays) x))
-			  (org-overlays-at (point))))))
+			  (overlays-at (point))))))
       (push (list :latex-fragment
-		  (org-overlay-start o) (org-overlay-end o)) clist)
+		  (overlay-start o) (overlay-end o)) clist)
       (push (list :latex-preview
-		  (org-overlay-start o) (org-overlay-end o)) clist))
+		  (overlay-start o) (overlay-end o)) clist))
      ((org-inside-LaTeX-fragment-p)
       ;; FIXME: positions wrong.
       (push (list :latex-fragment (point) (point)) clist)))
@@ -18459,11 +18463,11 @@ if no description is present"
 
 ;; Speedbar support
 
-(defvar org-speedbar-restriction-lock-overlay (org-make-overlay 1 1)
+(defvar org-speedbar-restriction-lock-overlay (make-overlay 1 1)
   "Overlay marking the agenda restriction line in speedbar.")
-(org-overlay-put org-speedbar-restriction-lock-overlay
+(overlay-put org-speedbar-restriction-lock-overlay
 		 'face 'org-agenda-restriction-lock)
-(org-overlay-put org-speedbar-restriction-lock-overlay
+(overlay-put org-speedbar-restriction-lock-overlay
 		 'help-echo "Agendas are currently limited to this item.")
 (org-detach-overlay org-speedbar-restriction-lock-overlay)
 
@@ -18496,8 +18500,8 @@ To get rid of the restriction, use \\[org-agenda-remove-restriction-lock]."
 	  (error "Cannot restrict to non-Org-mode file"))
 	(org-agenda-set-restriction-lock 'file)))
      (t (error "Don't know how to restrict Org-mode's agenda")))
-    (org-move-overlay org-speedbar-restriction-lock-overlay
-		      (point-at-bol) (point-at-eol))
+    (move-overlay org-speedbar-restriction-lock-overlay
+		  (point-at-bol) (point-at-eol))
     (setq current-prefix-arg nil)
     (org-agenda-maybe-redo)))
 

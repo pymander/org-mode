@@ -30,8 +30,7 @@
 
 (require 'org)
 (eval-when-compile
-  (require 'cl)
-  (require 'calendar))
+  (require 'cl))
 
 (declare-function calendar-absolute-from-iso    "cal-iso"    (&optional date))
 (defvar org-time-stamp-formats)
@@ -760,11 +759,10 @@ was started."
 			     (goto-char (match-end 0)))
 			   nil))))))
 	      (let (char-pressed)
-		(if (featurep 'xemacs)
-		    (progn
-		      (message (concat (funcall prompt-fn clock)
-				       " [(kK)eep (sS)ubtract (C)ancel]? "))
-		      (setq char-pressed (read-char-exclusive)))
+		(when (featurep 'xemacs)
+		  (message (concat (funcall prompt-fn clock)
+				   " [(kK)eep (sS)ubtract (C)ancel]? "))
+		  (setq char-pressed (read-char-exclusive)))
 		(while (or (null char-pressed)
 			   (and (not (memq char-pressed '(?k ?K ?s ?S ?C ?i)))
 				(or (ding) t)))
@@ -772,7 +770,7 @@ was started."
 			(read-char (concat (funcall prompt-fn clock)
 					   " [(kK)p (sS)ub (C)ncl (i)gn]? ")
 				   nil 45)))
-		(and (not (eq char-pressed ?i)) char-pressed))))))
+		(and (not (eq char-pressed ?i)) char-pressed)))))
 	 (default (floor (/ (org-float-time
 			     (time-subtract (current-time) last-valid)) 60)))
 	 (keep (and (memq ch '(?k ?K))
@@ -1059,7 +1057,7 @@ the clocking selection, associated with the letter `d'."
   "Task currently clocked in.")
 (defun org-clock-set-current ()
   "Set `org-clock-current-task' to the task currently clocked in."
-  (setq org-clock-current-task (org-get-heading)))
+  (setq org-clock-current-task (nth 4 (org-heading-components))))
 (defun org-clock-delete-current ()
   "Reset `org-clock-current-task' to nil."
   (setq org-clock-current-task nil))
@@ -1199,8 +1197,8 @@ If there is no running clock, throw an error, unless FAIL-QUIETLY is set."
     (if (not (org-clocking-p))
 	(if fail-quietly (throw 'exit t) (error "No active clock")))
     (let (ts te s h m remove)
-      (save-excursion
-	(set-buffer (org-clocking-buffer))
+      (save-excursion ; Do not replace this with `with-current-buffer'.
+	(with-no-warnings (set-buffer (org-clocking-buffer)))
 	(save-restriction
 	  (widen)
 	  (goto-char org-clock-marker)
@@ -1267,8 +1265,8 @@ If there is no running clock, throw an error, unless FAIL-QUIETLY is set."
   (interactive)
   (if (not (org-clocking-p))
       (error "No active clock"))
-  (save-excursion
-    (set-buffer (org-clocking-buffer))
+  (save-excursion ; Do not replace this with `with-current-buffer'.
+    (with-no-warnings (set-buffer (org-clocking-buffer)))
     (goto-char org-clock-marker)
     (delete-region (1- (point-at-bol)) (point-at-eol))
     ;; Just in case, remove any empty LOGBOOK left over
@@ -1430,7 +1428,7 @@ will be easy to remove."
     (org-move-to-column c)
     (unless (eolp) (skip-chars-backward "^ \t"))
     (skip-chars-backward " \t")
-    (setq ov (org-make-overlay (1- (point)) (point-at-eol))
+    (setq ov (make-overlay (1- (point)) (point-at-eol))
 	  tx (concat (buffer-substring (1- (point)) (point))
 		     (make-string (+ off (max 0 (- c (current-column)))) ?.)
 		     (org-add-props (if org-time-clocksum-use-fractional
@@ -1444,9 +1442,9 @@ will be easy to remove."
 			 (list 'face 'org-clock-overlay))
 		     ""))
     (if (not (featurep 'xemacs))
-	(org-overlay-put ov 'display tx)
-      (org-overlay-put ov 'invisible t)
-      (org-overlay-put ov 'end-glyph (make-glyph tx)))
+	(overlay-put ov 'display tx)
+      (overlay-put ov 'invisible t)
+      (overlay-put ov 'end-glyph (make-glyph tx)))
     (push ov org-clock-overlays)))
 
 (defun org-clock-remove-overlays (&optional beg end noremove)
@@ -1455,7 +1453,7 @@ BEG and END are ignored.  If NOREMOVE is nil, remove this function
 from the `before-change-functions' in the current buffer."
   (interactive)
   (unless org-inhibit-highlight-removal
-    (mapc 'org-delete-overlay org-clock-overlays)
+    (mapc 'delete-overlay org-clock-overlays)
     (setq org-clock-overlays nil)
     (unless noremove
       (remove-hook 'before-change-functions
