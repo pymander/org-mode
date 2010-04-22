@@ -36,10 +36,10 @@
   "Regular expression matching a uuid.")
 
 (defconst org-atom-infile-options
-  '(("FEED_MAP_ENTRIES" :feed-map-entries)
-    ("FEED_ID" :feed-id)
-    ("FEED_URL" :feed-url)
-    ("FEED_CONTENT_URL" :feed-content-url)))
+  '(("ATOM_MAP_ENTRIES" :atom-map-entries)
+    ("ATOM_ID" :atom-id)
+    ("ATOM_URL" :atom-url)
+    ("ATOM_CONTENT_URL" :atom-content-url)))
 
 (defconst org-atom-generator-name "Org/Atom"
   "Name of the atom generator.")
@@ -105,19 +105,19 @@ When PUB-DIR is set, use this as the publishing directory."
   (let* ((opt-plist (org-combine-plists (org-default-export-plist)
 					ext-plist
 					(org-infile-export-plist)))
-	 (feed-url (org-trim (or (plist-get opt-plist :feed-url) "")))
-	 (feed-content-url (org-trim (or (plist-get opt-plist :feed-content-url)
+	 (atom-url (org-trim (or (plist-get opt-plist :atom-url) "")))
+	 (atom-content-url (org-trim (or (plist-get opt-plist :atom-content-url)
 					 "")))
-	 (feed-id (org-trim (or (plist-get opt-plist :feed-id) feed-url)))
-	 (feed-map-entries (org-trim (or (plist-get opt-plist :feed-map-entries)
+	 (atom-id (org-trim (or (plist-get opt-plist :atom-id) atom-url)))
+	 (atom-map-entries (org-trim (or (plist-get opt-plist :atom-map-entries)
 					 "")))
 	 (author (plist-get opt-plist :author))
 	 (email (plist-get opt-plist :email))
-	 (description (or (plist-get opt-plist :feed-description)
+	 (description (or (plist-get opt-plist :atom-description)
 			  (plist-get opt-plist :description)))
-	 (feed-title (or (plist-get opt-plist :feed-title)
+	 (atom-title (or (plist-get opt-plist :atom-title)
 			 (plist-get opt-plist :title)))
-	 (feed-file (if (buffer-file-name)
+	 (atom-file (if (buffer-file-name)
 			(concat
 			 (if pub-dir pub-dir (file-name-directory
 					      (buffer-file-name)))
@@ -125,31 +125,31 @@ When PUB-DIR is set, use this as the publishing directory."
 			  (file-name-nondirectory
 			   (buffer-file-name)))
 			 "." org-atom-feed-extension)))
-	 (feed-publish-content (or (plist-get opt-plist :feed-publish-content)
+	 (atom-publish-content (or (plist-get opt-plist :atom-publish-content)
 				   org-atom-publish-content))
-	 (feed-publish-tags (or
-			     (plist-get opt-plist :feed-publish-category-tags)
+	 (atom-publish-tags (or
+			     (plist-get opt-plist :atom-publish-category-tags)
 			     org-atom-publish-category-tags))
-	 (feed-publish-email (or (plist-get opt-plist :email-info)
+	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'org-atom-htmlize)
 	 entries feed filebuf)
     ;; check mandatory options
-    (when (and (not body-only) (string= feed-url ""))
+    (when (and (not body-only) (string= atom-url ""))
       (error "Missing url for feed"))
     ;; atom entry w/o content MUST have link pointing to the content
-    (when (or (not feed-publish-content) (string= feed-content-url ""))
+    (when (or (not atom-publish-content) (string= atom-content-url ""))
       (error "Missing url for feed content"))
     ;; prepare headlines
-    (when (and (not (string= feed-map-entries ""))
+    (when (and (not (string= atom-map-entries ""))
 	       (> (length
 		   (org-map-entries
-		    'org-atom-prepare-headline feed-map-entries)) 0))
+		    'org-atom-prepare-headline atom-map-entries)) 0))
       (unless to-buffer
-	(setq to-buffer (if feed-file
-			    (or (find-buffer-visiting feed-file)
-				(find-file-noselect feed-file))
+	(setq to-buffer (if atom-file
+			    (or (find-buffer-visiting atom-file)
+				(find-file-noselect atom-file))
 			  (error "Need a file name to be able to export")))
 	(with-current-buffer to-buffer (erase-buffer)))
       ;; maybe save modified headlines
@@ -164,48 +164,47 @@ When PUB-DIR is set, use this as the publishing directory."
 				       (or (plist-get opt-plist :exclude-tags)
 					   org-export-exclude-tags))
 	(message "Exporting...")
-	;; there are entries in this file
 	(setq entries
 	      (org-map-entries '(lambda ()
 				  (append
 				   (org-atom-export-headline
-				    (concat feed-url ",")
-				    feed-content-url
+				    (concat atom-url ",")
+				    atom-content-url
 				    nil
-				    feed-publish-content
-				    feed-publish-tags)))
-			       feed-map-entries))
+				    atom-publish-content
+				    atom-publish-tags)))
+			       atom-map-entries))
 	;; maybe add author
 	(when body-only
 	  (setq entries (mapcar '(lambda (e)
 				   (append
 				    (unless (assoc 'author e)
-				      (list (if feed-publish-email
+				      (list (if atom-publish-email
 						(list 'author nil author email)
 					      (list 'author nil author))))
 				    e)))))
 	(setq feed
 	      (if body-only
-		  (mapconcat 'atom-syndication-element-entry entries "\n")
+		  (mapconcat 'atom-syndication-element-entry entries "")
 		(atom-syndication-element-feed nil
 		 (append
 		  (unless (string= description "")
 		    (list (list 'subtitle (org-trim description))))
 		  (list
-		   (list 'title nil (org-trim feed-title))
+		   (list 'title nil (org-trim atom-title))
 		   (list 'generator nil
 			 org-atom-generator-name
 			 org-atom-generator-version)
 		   (list 'id nil (concat
 				  (if (and org-atom-prefer-urn-uuid
-					   (org-atom-looks-like-uuid-p feed-id))
-				      "urn:uuid:" "") feed-id))
+					   (org-atom-looks-like-uuid-p atom-id))
+				      "urn:uuid:" "") atom-id))
 		   (list 'updated nil (if (buffer-file-name)
 					  (nth 5 (file-attributes
 						  (buffer-file-name)))
 					(current-time)))
-		   (list 'link nil feed-url nil "self")
-		   (if feed-publish-email
+		   (list 'link nil atom-url nil "self")
+		   (if atom-publish-email
 		       (list 'author nil author email)
 		     (list 'author nil author)))
 		  (mapcar '(lambda (entry)
@@ -235,19 +234,19 @@ PROJECT and publishes them as one single atom feed."
 	 (index-title (or (plist-get project-plist :index-title)
 			  (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
-	 (feed-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
+	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
 			   index-filename))
-	 (feed-id (or (plist-get project-plist :feed-id) feed-url))
+	 (atom-id (or (plist-get project-plist :atom-id) atom-url))
 	 (visiting (find-buffer-visiting index-filename))
 	 file index-buffer)
     ;; maybe adjust publication url
     (unless (and pub-url (string-match-p "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
-    (setq project-plist (plist-put project-plist :feed-title index-title))
+    (setq project-plist (plist-put project-plist :atom-title index-title))
     (with-current-buffer (setq index-buffer
 			       (or visiting (find-file index-filename)))
       (erase-buffer)
-      (insert (concat "<?xml version=\"1.0\"?>\n"
+      (insert (concat "<?xml version=\"1.0\"?>"
 		      (atom-syndication-element-feed
 		       (append
 			(list
@@ -255,15 +254,15 @@ PROJECT and publishes them as one single atom feed."
 			 (list 'id nil (concat
 					(if (and org-atom-prefer-urn-uuid
 						 (org-atom-looks-like-uuid-p
-						  feed-id))
-					    "urn:uuid:" "") feed-id))
+						  atom-id)
+					    "urn:uuid:" "") atom-id))
 			 (list 'updated nil (current-time))
-			 (list 'link nil feed-url nil "self"))))))
+			 (list 'link nil atom-url nil "self"))))))
       (re-search-backward "</feed>")
       (while (setq file (pop files))
 	(let* ((entries-plist (org-combine-plists
 			       project-plist
-			       (plist-put nil :feed-content-url
+			       (plist-put nil :atom-content-url
 					  (concat
 					   pub-url
 					   (file-relative-name
@@ -271,7 +270,7 @@ PROJECT and publishes them as one single atom feed."
 					   (or
 					    (plist-get
 					     project-plist
-					     :feed-content-extension)
+					     :atom-content-extension)
 					    ".html")))))
 	       (entries
 		(with-current-buffer (or (find-buffer-visiting file)
@@ -302,17 +301,17 @@ PUB-DIR is the publishing directory."
 			      filename) (plist-get plist :base-directory))))))
     ;; maybe set feed content and feed url
     (save-excursion
-      (switch-to-buffer (or visiting (find-file filename)))
+      (switch-to-buffer (or visiting (find-file-noselect filename)))
       (org-export-as-atom
        (org-combine-plists plist
 			   (if pub-url-fse
 			       (list
-				:feed-url
+				:atom-url
 				(concat pub-url-fse "." org-atom-feed-extension)
-				:feed-content-url
+				:atom-content-url
 				(concat pub-url-fse
 					(or (plist-get
-					     plist :feed-content-extension)
+					     plist :atom-content-extension)
 					    ".html"))))) nil nil pub-dir)
       (unless visiting
 	(kill-buffer)))))
