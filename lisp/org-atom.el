@@ -340,7 +340,7 @@ tags as entry category terms."
 	   (published (org-entry-get nil org-atom-published-property-name))
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
 			published))
-	   (author (org-entry-get nil "EXPORT_AUTHOR"))
+	   (author (or (org-entry-get nil "Author")))
 	   (elist
 	    (append
 	     (if published
