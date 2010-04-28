@@ -127,8 +127,9 @@ specifying a var of the same value."
   (let ((vars-forms (mapconcat ;; define any variables
                       (lambda (pair)
                         (format "%s %s" (car pair) (org-babel-clojure-var-to-clojure (cdr pair))))
-                      vars "\n      ")))
-    (format "(let [%s]\n  %s)" vars-forms (org-babel-trim body))))
+                      vars "\n      "))
+	(body (org-babel-trim body)))
+    (if (> (length vars-forms) 0) (format "(let [%s]\n  %s)" vars-forms body) body)))
 
 (defun org-babel-prep-session:clojure (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS."
@@ -263,12 +264,18 @@ last statement in BODY, as elisp."
       (org-babel-clojure-evaluate-session buffer body result-type)
     (org-babel-clojure-evaluate-external-process buffer body result-type)))
 
+(defun org-babel-expand-body:clojure (body params &optional processed-params)
+  (org-babel-clojure-build-full-form
+   body (second (or processed-params (org-babel-process-params params)))))
+
 (defun org-babel-execute:clojure (body params)
   "Execute a block of Clojure code with org-babel."
   (let* ((processed-params (org-babel-process-params params))
-         (vars (second processed-params))
-         (body (org-babel-clojure-build-full-form body vars))
+         (body (org-babel-expand-body:clojure body params processed-params))
          (session (org-babel-clojure-initiate-session (first processed-params))))
-    (org-babel-clojure-evaluate session body (fourth processed-params))))
+    (org-babel-reassemble-table
+     (org-babel-clojure-evaluate session body (fourth processed-params))
+     (org-babel-pick-name (nth 4 processed-params) (cdr (assoc :colnames params)))
+     (org-babel-pick-name (nth 5 processed-params) (cdr (assoc :rownames params))))))
 
 (provide 'org-babel-clojure)

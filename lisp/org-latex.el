@@ -793,7 +793,9 @@ when PUB-DIR is set, use this as the publishing directory."
 	  (replace-match "\n")))
 
     (run-hooks 'org-export-latex-final-hook)
-    (or to-buffer (save-buffer))
+    (if to-buffer
+	(unless (eq major-mode 'latex-mode) (latex-mode))
+      (save-buffer))
     (org-export-latex-fix-inputenc)
     (run-hooks 'org-export-latex-after-save-hook)
     (goto-char (point-min))
@@ -1086,7 +1088,7 @@ LEVEL indicates the default depth for export."
 	      (save-restriction
 		(widen)
 		(goto-char (point-min))
-		(and (re-search-forward "^#\\+LaTeX_CLASS:[ \t]*\\([a-zA-Z]+\\)" nil t)
+		(and (re-search-forward "^#\\+LaTeX_CLASS:[ \t]*\\(-[a-zA-Z]+\\)" nil t)
 		     (match-string 1))))
 	    (plist-get org-export-latex-options-plist :latex-class)
 	    org-export-latex-default-class)
@@ -1145,7 +1147,7 @@ OPT-PLIST is the options plist for current buffer."
      (org-splice-latex-header
       (org-export-apply-macros-in-string org-export-latex-header)
       org-export-latex-default-packages-alist
-      org-export-latex-packages-alist
+      org-export-latex-packages-alist nil
       (org-export-apply-macros-in-string
        (plist-get opt-plist :latex-header-extra)))
      ;; append another special variable
@@ -2164,13 +2166,23 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 
 (defun org-export-latex-lists ()
   "Convert plain text lists in current buffer into LaTeX lists."
-  (goto-char (point-min))
-  (while (re-search-forward org-list-beginning-re nil t)
-    (org-if-unprotected
-     (beginning-of-line)
-     (insert (org-list-to-latex (org-list-parse-list t)
-				org-export-latex-list-parameters))
-     "\n")))
+  (let (res)
+    (goto-char (point-min))
+    (while (re-search-forward org-list-beginning-re nil t)
+      (org-if-unprotected
+       (beginning-of-line)
+       (setq res (org-list-to-latex (org-list-parse-list t)
+				    org-export-latex-list-parameters))
+       (while (string-match "^\\(\\\\item[ \t]+\\)\\[@start:\\([0-9]+\\)\\]"
+			    res)
+	 (setq res (replace-match
+		    (concat (format "\\setcounter{enumi}{%d}"
+				    (1- (string-to-number
+					 (match-string 2 res))))
+			    "\n"
+			    (match-string 1 res))
+		    t t res)))
+       (insert res "\n")))))
 
 (defconst org-latex-entities
  '("\\!"

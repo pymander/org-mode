@@ -1222,7 +1222,9 @@ visually indistinguishable from true headlines.  In short: even though
 as bullets.
 @item
 @emph{Ordered} list items start with a numeral followed by either a period or
-a right parenthesis, such as @samp{1.} or @samp{1)}.
+a right parenthesis, such as @samp{1.} or @samp{1)}.  If you want a list to
+start a different value (e.g. 20), start the text of the item with
+@code{[@@start:20]}. 
 @item
 @emph{Description} list items are unordered list items, and contain the
 separator @samp{ :: } to separate the description @emph{term} from the
@@ -1321,6 +1323,11 @@ similar effect.
 Move the item including subitems up/down (swap with previous/next item
 of same indentation).  If the list is ordered, renumbering is
 automatic.
+@kindex M-@key{left}
+@kindex M-@key{right}
+@item M-@key{left}
+@itemx M-@key{right}
+Decrease/increase the indentation of an item, leaving children alone.
 @kindex M-S-@key{left}
 @kindex M-S-@key{right}
 @item M-S-@key{left}
@@ -1874,6 +1881,9 @@ to the right and of string-rich column to the left, you and use @samp{<r>} or
 @samp{<l>} in a similar fashion.  You may also combine alignment and field
 width like this: @samp{<l10>}.
 
+Lines which only contain these formatting cookies will be removed
+automatically when exporting the document.
+
 @node Column groups, Orgtbl mode, Column width and alignment, Tables
 @section Column groups
 @cindex grouping columns in tables
@@ -1890,14 +1900,14 @@ a group of its own.  Boundaries between column groups will upon export be
 marked with vertical lines.  Here is an example:
 
 @example
-|   |  N | N^2 | N^3 | N^4 | sqrt(n) | sqrt[4](N) |
-|---+----+-----+-----+-----+---------+------------|
-| / | <> |   < |     |   > |       < |          > |
-| # |  1 |   1 |   1 |   1 |       1 |          1 |
-| # |  2 |   4 |   8 |  16 |  1.4142 |     1.1892 |
-| # |  3 |   9 |  27 |  81 |  1.7321 |     1.3161 |
-|---+----+-----+-----+-----+---------+------------|
-#+TBLFM: $3=$2^2::$4=$2^3::$5=$2^4::$6=sqrt($2)::$7=sqrt(sqrt(($2)))
+| N | N^2 | N^3 | N^4 | sqrt(n) | sqrt[4](N) |
+|---+-----+-----+-----+---------+------------|
+| / |   < |     |   > |       < |          > |
+| 1 |   1 |   1 |   1 |       1 |          1 |
+| 2 |   4 |   8 |  16 |  1.4142 |     1.1892 |
+| 3 |   9 |  27 |  81 |  1.7321 |     1.3161 |
+|---+-----+-----+-----+---------+------------|
+#+TBLFM: $2=$1^2::$3=$1^3::$4=$1^4::$5=sqrt($1)::$6=sqrt(sqrt(($1)))
 @end example
 
 It is also sufficient to just insert the column group starters after
@@ -2799,6 +2809,7 @@ the colon.  The following list shows examples for each link type.
 
 @example
 http://www.astro.uva.nl/~dominik          @r{on the web}
+doi:10.1000/182                           @r{DOI for an electronic resource}
 file:/home/dominik/images/jupiter.jpg     @r{file, absolute path}
 /home/dominik/images/jupiter.jpg          @r{same as above}
 file:papers/last.pdf                      @r{file, relative path}
@@ -5577,6 +5588,7 @@ new table.  The @samp{BEGIN} line can specify options:
 :tend        @r{A time string specifying when to stop considering times.}
 :step        @r{@code{week} or @code{day}, to split the table into chunks.}
              @r{To use this, @code{:block} or @code{:tstart}, @code{:tend} are needed.}
+:tags        @r{A tags match to select entries that should contribute}
 :link        @r{Link the item headlines in the table to their origins.}
 :formula     @r{Content of a @code{#+TBLFM} line to be added and evaluated.}
              @r{As a special case, @samp{:formula %} adds a column with % time.}
@@ -10444,7 +10456,7 @@ file is part of any project in @code{org-publish-project-alist}.
 The following properties may be used to control publishing of 
 a map of files for a given project.
 
-@multitable @columnfractions 0.25 0.75
+@multitable @columnfractions 0.35 0.65
 @item @code{:auto-sitemap}
 @tab When non-nil, publish a sitemap during @code{org-publish-current-project}
 or @code{org-publish-all}.
@@ -10460,6 +10472,19 @@ becomes @file{sitemap.html}).
 @tab Plug-in function to use for generation of the sitemap.
 Defaults to @code{org-publish-org-sitemap}, which generates a plain list
 of links to all files in the project.
+
+@item @code{:sitemap-sort-folders}
+@tab Where folders should appear in the sitemap.  Set this to @code{first}
+(default) or @code{last} to display folders first or last,
+respectively.  Any other value will mix files and folders.
+
+@item @code{:sitemap-alphabetically}
+@tab The site map is normally sorted alphabetically.  Set this explicitly to
+@code{nil} to turn off sorting.
+
+@item @code{:sitemap-ignore-case}
+@tab Should sorting be case-sensitive?  Default @code{nil}.
+
 @end multitable
 
 @node Generating an index,  , Sitemap, Configuration
@@ -11352,7 +11377,18 @@ fixed this problem:
 @item @file{windmove.el} by Hovav Shacham
 @cindex @file{windmove.el}
 This package also uses the @kbd{S-<cursor>} keys, so everything written
-in the paragraph above about CUA mode also applies here.
+in the paragraph above about CUA mode also applies here.  If you want make
+the windmove function active in locations where Org-mode does not have
+special functionality on @kbd{S-@key{cursor}}, add this to your
+configuration:
+
+@lisp
+;; Make windmove work in org-mode:
+(add-hook 'org-shiftup-final-hook 'windmove-up)
+(add-hook 'org-shiftleft-final-hook 'windmove-left)
+(add-hook 'org-shiftdown-final-hook 'windmove-down)
+(add-hook 'org-shiftright-final-hook 'windmove-right)
+@end lisp
 
 @item @file{viper.el} by Michael Kifer
 @cindex @file{viper.el}
@@ -12641,7 +12677,7 @@ also acted as mailing list moderator for some time.
 @item
 @i{Sebastian Rose} wrote @file{org-info.js}, a Java script for displaying
 webpages derived from Org using an Info-like or a folding interface with
-single-key navigation.
+single-key navigation, and make lots of improvements to the HTML exporter.
 @item
 @i{Frank Ruell} solved the mystery of the @code{keymapp nil} bug, a
 conflict with @file{allout.el}.
@@ -12680,11 +12716,18 @@ tweaks and features.
 @i{Adam Spiers} asked for global linking commands, inspired the link
 extension system, added support for mairix, and proposed the mapping API.
 @item
+@i{Ulf Stegemann} created the table to translate special symbols to HTML,
+LaTeX, UTF-8, Latin-1 and ASCII.
+@item
 @i{Andy Stewart} contributed code to @file{org-w3m.el}, to copy HTML content
 with links transformation to Org syntax.
 @item
 @i{David O'Toole} wrote @file{org-publish.el} and drafted the manual
 chapter about publishing.
+@item
+@i{Stefan Vollmar} organized a video-recorded talk at the
+Max-Planck-Institute for Neurology.  He also inspired the creation of a
+concept index for HTML export.
 @item
 @i{J@"urgen Vollmer} contributed code generating the table of contents
 in HTML output.

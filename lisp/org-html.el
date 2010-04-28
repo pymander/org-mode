@@ -710,7 +710,7 @@ PUB-DIR is set, use this as the publishing directory."
 	 table-buffer table-orig-buffer
 	 ind item-type starter didclose
 	 rpl path attr desc descp desc1 desc2 link
-	 snumber fnc item-tag
+	 snumber fnc item-tag initial-number
 	 footnotes footref-seen
 	 id-file href
 	 )
@@ -871,7 +871,9 @@ lang=\"%s\" xml:lang=\"%s\">
 					      t t line)))
 				(while (string-match "&lt;\\(&lt;\\)+\\|&gt;\\(&gt;\\)+" txt)
 				  (setq txt (replace-match "" t t txt)))
-				(setq href (format "sec-%s" snumber))
+				(setq href
+				      (replace-regexp-in-string
+				       "\\." "_" (format "sec-%s" snumber)))
 				(setq href (or (cdr (assoc href org-export-preferred-target-alist)) href))
 				(push
 				 (format
@@ -959,10 +961,12 @@ lang=\"%s\" xml:lang=\"%s\">
 	  (when (equal "ORG-VERSE-START" line)
 	    (org-close-par-maybe)
 	    (insert "\n<p class=\"verse\">\n")
+	    (setq org-par-open t)
 	    (setq inverse t)
 	    (throw 'nextline nil))
 	  (when (equal "ORG-VERSE-END" line)
 	    (insert "</p>\n")
+	    (setq org-par-open nil)
 	    (org-open-par)
 	    (setq inverse nil)
 	    (throw 'nextline nil))
@@ -1280,7 +1284,11 @@ lang=\"%s\" xml:lang=\"%s\">
 		    starter (if (match-beginning 2)
 				(substring (match-string 2 line) 0 -1))
 		    line (substring line (match-beginning 5))
+		    initial-number nil
 		    item-tag nil)
+	      (if (string-match "\\`\\[@start:\\([0-9]+\\)\\][ \t]?" line)
+		  (setq initial-number (match-string 1 line)
+			line (replace-match "" t t line)))
 	      (if (and starter (string-match "\\(.*?\\) ::[ \t]*" line))
 		  (setq item-type "d"
 			item-tag (match-string 1 line)
@@ -1305,11 +1313,15 @@ lang=\"%s\" xml:lang=\"%s\">
 	       ((and starter
 		     (or (not in-local-list)
 			 (> ind (car local-list-indent))))
+		;; check for a specified start number
 		;; Start new (level of) list
 		(org-close-par-maybe)
 		(insert (cond
 			 ((equal item-type "u") "<ul>\n<li>\n")
-			 ((equal item-type "o") "<ol>\n<li>\n")
+			 ((equal item-type "o")
+			  (if initial-number
+			      (format "<ol start=%s>\n<li>\n" initial-number)
+			    "<ol>\n<li>\n"))
 			 ((equal item-type "d")
 			  (format "<dl>\n<dt>%s</dt><dd>\n" item-tag))))
 		(push item-type local-list-type)
@@ -1996,10 +2008,12 @@ If there are links in the string, don't modify these."
 (defvar local-list-indent)
 (defvar local-list-type)
 (defun org-export-html-close-lists-maybe (line)
-  (let ((ind (or (get-text-property 0 'original-indentation line)))
-;		 (and (string-match "\\S-" line)
-;		      (org-get-indentation line))))
-	didclose)
+  (let* ((rawhtml (and in-local-list
+		       (get-text-property 0 'org-protected line)))
+         (ind (if rawhtml
+		  (org-get-indentation line)
+		(or (get-text-property 0 'original-indentation line))))
+	 didclose)
     (when ind
       (while (and in-local-list
 		  (<= ind (car local-list-indent)))
@@ -2023,7 +2037,7 @@ When TITLE is nil, just close all open levels."
 			 (cdr (assoc target org-export-preferred-target-alist))))
 	 (remove (or preferred target))
 	 (l org-level-max)
-	 snumber href suffix)
+	 snumber snu href suffix)
     (setq extra-targets (remove remove extra-targets))
     (setq extra-targets
 	  (mapconcat (lambda (x)
@@ -2072,7 +2086,8 @@ When TITLE is nil, just close all open levels."
 			  extra-targets title "<br/>\n")
 		(insert "<ul>\n<li>" title "<br/>\n"))))
 	(aset org-levels-open (1- level) t)
-	(setq snumber (org-section-number level))
+	(setq snumber (org-section-number level)
+	      snu (replace-regexp-in-string "\\." "_" snumber))
 	(setq level (+ level org-export-html-toplevel-hlevel -1))
 	(if (and org-export-with-section-numbers (not body-only))
 	    (setq title (concat
@@ -2080,9 +2095,9 @@ When TITLE is nil, just close all open levels."
 				 level snumber)
 			 " " title)))
 	(unless (= head-count 1) (insert "\n</div>\n"))
-	(setq href (cdr (assoc (concat "sec-" snumber) org-export-preferred-target-alist)))
-	(setq suffix (or href snumber))
-	(setq href (or href (concat "sec-" snumber)))
+	(setq href (cdr (assoc (concat "sec-" snu) org-export-preferred-target-alist)))
+	(setq suffix (or href snu))
+	(setq href (or href (concat "sec-" snu)))
 	(insert (format "\n<div id=\"outline-container-%s\" class=\"outline-%d%s\">\n<h%d id=\"%s\">%s%s</h%d>\n<div class=\"outline-text-%d\" id=\"text-%s\">\n"
 			suffix level (if extra-class (concat " " extra-class) "")
 			level href

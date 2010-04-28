@@ -176,18 +176,31 @@ code blocks by language."
              (source-name (intern (or (fifth info)
                                       (format "block-%d" block-counter))))
              (src-lang (first info))
+	     (expand-cmd (intern (concat "org-babel-expand-body:" src-lang)))
              (params (third info))
-	     (body (if (equal "no" (cdr (assoc :noweb params)))
-		       (second info)
-		     (org-babel-expand-noweb-references info)))
-             (spec (list link source-name params body (third (cdr (assoc src-lang org-babel-tangle-langs)))))
              by-lang)
         (unless (string= (cdr (assoc :tangle params)) "no") ;; maybe skip
           (unless (and lang (not (string= lang src-lang))) ;; maybe limit by language
             ;; add the spec for this block to blocks under it's language
             (setq by-lang (cdr (assoc src-lang blocks)))
             (setq blocks (delq (assoc src-lang blocks) blocks))
-            (setq blocks (cons (cons src-lang (cons spec by-lang)) blocks))))))
+            (setq blocks
+                  (cons
+                   (cons src-lang
+                         (cons (list link source-name params
+                                     ((lambda (body)
+                                        (if (assoc :no-expand params)
+                                            body
+                                          (funcall
+					   (if (fboundp expand-cmd) expand-cmd 'org-babel-expand-body:generic)
+                                           body
+                                           params)))
+                                      (if (and (cdr (assoc :noweb params))
+                                               (string= "yes" (cdr (assoc :noweb params))))
+                                          (org-babel-expand-noweb-references info) (second info)))
+                                     (third (cdr (assoc
+                                                  src-lang org-babel-tangle-langs))))
+                               by-lang)) blocks))))))
     ;; ensure blocks in the correct order
     (setq blocks
           (mapcar (lambda (by-lang) (cons (car by-lang) (reverse (cdr by-lang)))) blocks))

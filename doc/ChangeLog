@@ -1,3 +1,18 @@
+2010-04-26  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Conflicts): Document new work-around for windmove.el.
+	(Plain lists): Describe counter start cookies.
+	(External links): Add example for a doi link.
+
+2010-04-23  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Plain lists): Document the commands to promote/demote
+	an item without affecting children.
+
+2010-04-22  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.texi (Sitemap): Document sitemap sorting.
+
 2010-04-12  Carsten Dominik  <carsten.dominik@gmail.com>
 
 	* org.texi (Repeated tasks): Document that the user can determine

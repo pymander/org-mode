@@ -1,3 +1,172 @@
+2010-04-28  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-table.el (org-table-colgroup-line-p)
+	(org-table-cookie-line-p): New functions.
+
+	* org-exp.el (org-table-clean-before-export): Better tests for
+	colgroup and cookie lines.
+
+2010-04-27  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-agenda.el (org-agenda-goto): Push a mark before changing
+	the position.
+
+	* org-footnote.el (org-footnote): New group.
+	(org-footnote-section)
+	(org-footnote-tag-for-non-org-mode-files): Fix typos.
+
+	* org-list.el (org-end-of-item-text-before-children): Also do
+	the right thing at the end of a file.
+
+	* org.el (org-set-packages-alist, org-get-packages-alist): New
+	function.
+	(org-export-latex-default-packages-alist)
+	(org-export-latex-packages-alist): Add extra flag to
+	each package, indicating if it should be used for snippets.
+	(org-create-formula-image): Add the snippet argument.
+	(org-splice-latex-header): New argument SNIPPET-P, pass it
+	through to `org-latex-packages-to-string'.
+	(org-latex-packages-to-string): New argument SNIPPET-P.
+
+	* org-latex.el (org-export-latex-make-header): Add the snippet
+	argument.
+
+	* org-docbook.el (org-export-as-docbook): Implement ordered
+	lists starting at some offset.
+
+2010-04-26  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-link-types, org-open-at-point): Add doi links.
+
+	* org-ascii.el (org-export-ascii-preprocess): Remove list
+	startcounter cookies.
+
+	* org-list.el (org-renumber-ordered-list): Respect counter
+	start values.
+
+	* org-latex.el (org-export-latex-lists): Accept ordered list
+	item offset cookie.
+
+	* org-html.el (org-export-as-html): Accept ordered list
+	item offset cookie.
+
+	* org-indent.el (org-indent-mode): Turn off `indent-tabs-mode'
+	which messes up alignment of tags.
+
+2010-04-25  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-clock.el (org-clock-cancel, org-clock-out): Make sure
+	the modeline display is removed.
+
+	* org-exp.el (org-export-format-drawer-function): Fix
+	docstring.
+
+	* org-agenda.el (org-agenda-refile): New optional argument
+	NO-UPDATE.
+	(org-agenda-refile): Call `org-agenda-redo' unless NO-UPDATE
+	is set.
+	(org-agenda-bulk-action): Call the refile command with updates
+	suppressed - but arrange for `org-agenda-redo' to be called at
+	the end.
+
+	* org.el (org-mode): Make table mapping quiet.
+	(org-table-map-tables): New optional argument QUIETLY.
+
+	* org-ascii.el (org-export-ascii-preprocess): Make table
+	mapping quiet.
+
+	* org-html.el (org-export-as-html, org-html-level-start): Change
+	XHTML IDs to not use dots.
+
+	* org-exp.el (org-export-define-heading-targets): Change
+	XHTML IDs to not use dots.
+
+	* org-docbook.el (org-export-docbook-level-start): Change
+	XHTML IDs to not use dots.
+
+	* org-latex.el (org-export-as-latex): Make sure that the
+	result buffer is in latex-mode.
+
+	* org.el (org-shiftup-final-hook, org-shiftdown-final-hook)
+	(org-shiftleft-final-hook, org-shiftright-final-hook): New
+	hooks.
+
+2010-04-24  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-table.el (org-table-justify-field-maybe): Make sure that
+	inserting a value does not turn a line into a hline.
+
+2010-04-23  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-clock.el (org-clock-sum): New argument HEADLINE-FILTER.
+	(org-clock-sum): Add property to selected headlines.
+	(org-dblock-write:clocktable): Make tags matcher.
+
+	* org.el (org-set-autofill-regexps): XEmacs compatibility.
+
+	* org-latex.el (org-export-latex-set-initial-vars): Allow "-"
+	in latex class definitions
+
+	* org.el (org-shiftup-hook, org-shiftdown-hook)
+	(org-shiftleft-hook, org-shiftright-hook): New hooks.
+
+	* org-entities.el (org-entities): Use \land and \lor for logical
+	operators.
+
+	* org.el (org-shiftmetaleft, org-shiftmetaright): Call the subtree
+	indentation commands.
+	(org-hidden-tree-error): New defsubst.
+	(org-metaleft, org-metaright): Check for hidden stuff and throw an
+	error.
+	(org-check-for-hidden): New function.
+
+	* org-list.el (org-item-re): New function.
+	(org-at-item-p): Use `org-item-re'.
+	(org-end-of-item-text-before-children): New function.
+	(org-outdent-item, org-indent-item): Arrange for leaving the
+	subtree alone.
+	(org-outdent-item-tree, org-indent-item-tree): New argument
+	NO-SUBTREE.
+	(org-indent-item-tree): Use `org-end-of-item-text-before-children'
+	to find the end for processing while ignoring the subtree.
+
+	* org-publish.el (org-publish-sitemap-sort-alphabetically)
+	(org-publish-sitemap-sort-folders)
+	(org-publish-sitemap-sort-ignore-case): New options.
+
+2010-04-22  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-publish.el (org-publish-compare-directory-files): Fix sorting.
+
+	* org-compat.el (org-get-x-clipboard-compat): Use (featurep 'xemacs).
+
+	* org-publish.el (org-publish-project-alist): Update docstring.
+	(org-publish-file-title-cache): New variable.
+	(org-publish-initialize-files-alist): Initialize
+	`org-publish-initialize-files-alist' to nil.
+	(org-publish-sort-directory-files): New function.
+	(org-publish-projects): Access the new properties.
+	(org-publish-find-title): Use the file title cache.
+	(org-publish-find-title): Build the file title cache.
+	(org-publish-get-base-files-1): Sort files.
+	(org-publish-aux-preprocess): Do not throw an error when before
+	the first headline.  Allow an empty target, meaning to link just
+	to the file.
+	(org-publish-index-generate-theindex.inc): Check if there is
+	actually a target and only then add it to the link.
+	(org-publish-projects): Fix a remaining issue with the last commit
+
+	* org-html.el (org-export-as-html): Treat verse as open/close
+	paragraph.
+	(org-export-html-close-lists-maybe): Allow to splice raw HTML into
+	and out of lists.
+
+2010-04-22  Dan Davison  <davison@stats.ox.ac.uk>
+
+	* org-src.el (org-edit-src-code): Allow the org-src edit buffer to
+	be used in a read-only mode.
+	(org-edit-src-code): Different message in read-only mode
+
 2010-04-21  Carsten Dominik  <carsten.dominik@gmail.com>
 
 	* org-src.el (org-edit-src-find-region-and-lang): Test for

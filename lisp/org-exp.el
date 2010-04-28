@@ -42,6 +42,8 @@
 (declare-function org-export-htmlize-region-for-paste "org-html" (beg end))
 (declare-function htmlize-buffer "ext:htmlize" (&optional buffer))
 (declare-function org-inlinetask-remove-END-maybe "org-inlinetask" ())
+(declare-function org-table-cookie-line-p "org-table" (line))
+(declare-function org-table-colgroup-line-p "org-table" (line))
 (autoload 'org-export-generic "org-export-generic" "Export using the generic exporter" t)
 (defgroup org-export nil
   "Options for exporting org-listings."
@@ -1239,7 +1241,9 @@ Also find all ID and CUSTOM_ID propertiess and store them."
 		       (save-excursion (goto-char (point-at-bol))
 				       (org-outline-level))))
 	  (setq target (org-solidify-link-text
-			(format "sec-%s" (org-section-number level))))
+			(format "sec-%s" (replace-regexp-in-string
+					  "\\." "_"
+					  (org-section-number level)))))
 	  (setq last-section-target target)
 	  (push (cons target target) target-alist)
 	  (add-text-properties
@@ -1341,9 +1345,9 @@ the current file."
 (defvar org-export-format-drawer-function nil
   "Function to be called to format the contents of a drawer.
 The function must accept three parameters:
-  BACKEND  one of the symbols html, docbook, latex, ascii, xoxo
   NAME     the drawer name, like \"PROPERTIES\"
   CONTENT  the content of the drawer.
+  BACKEND  one of the symbols html, docbook, latex, ascii, xoxo
 The function should return the text to be inserted into the buffer.
 If this is nil, `org-export-format-drawer' is used as a default.")
 
@@ -2658,13 +2662,16 @@ If yes remove the column and the special lines."
 				"^[ \t]*| *\\([\#!$*_^ /]\\) *|")
 			      x)))
 	     lines))
+      ;; No special marking column
       (progn
 	(setq org-table-clean-did-remove-column nil)
 	(delq nil
 	      (mapcar
 	       (lambda (x)
 		 (cond
-		  ((string-match  "^[ \t]*| */ *|" x)
+		  ((org-table-colgroup-line-p x)
+		   ;; This line contains colgroup info, extract it
+		   ;; and then discard the line
 		   (setq org-table-colgroup-info
 			 (mapcar (lambda (x)
 				   (cond ((member x '("<" "&lt;")) :start)
@@ -2673,14 +2680,20 @@ If yes remove the column and the special lines."
 					 (t nil)))
 				 (org-split-string x "[ \t]*|[ \t]*")))
 		   nil)
+		  ((org-table-cookie-line-p x)
+		   ;; This line contains formatting cookies, discard it
+		   nil)
 		  (t x)))
 	       lines)))
+    ;; there is a special marking column
     (setq org-table-clean-did-remove-column t)
     (delq nil
 	  (mapcar
 	   (lambda (x)
 	     (cond
-	      ((string-match  "^[ \t]*| */ *|" x)
+	      ((org-table-colgroup-line-p x)
+	       ;; This line contains colgroup info, extract it
+	       ;; and then discard the line
 	       (setq org-table-colgroup-info
 		     (mapcar (lambda (x)
 			       (cond ((member x '("<" "&lt;")) :start)
@@ -2689,8 +2702,12 @@ If yes remove the column and the special lines."
 				     (t nil)))
 			     (cdr (org-split-string x "[ \t]*|[ \t]*"))))
 	       nil)
+	      ((org-table-cookie-line-p x)
+	       ;; This line contains formatting cookies, discard it
+	       nil)
 	      ((string-match "^[ \t]*| *[!_^/] *|" x)
-	       nil) ; ignore this line
+	       ;; ignore this line
+	       nil)
 	      ((or (string-match "^\\([ \t]*\\)|-+\\+" x)
 		   (string-match "^\\([ \t]*\\)|[^|]*|" x))
 	       ;; remove the first column

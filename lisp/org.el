@@ -2302,7 +2302,7 @@ a double prefix argument to a time-stamp command like `C-c .' or `C-c !',
 and by using a prefix arg to `S-up/down' to specify the exact number
 of minutes to shift."
   :group 'org-time
-  :get '(lambda (var) ; Make sure all entries have 5 elements
+  :get '(lambda (var) ; Make sure both elements are there
 	  (if (integerp (default-value var))
 	      (list (default-value var) 5)
 	    (default-value var)))
@@ -2958,25 +2958,42 @@ will be appended."
 
 (defvar org-format-latex-header-extra nil)
 
+(defun org-set-packages-alist (var val)
+  "Set the packages alist and make sure it has 3 elements per entry."
+  (set var (mapcar (lambda (x)
+		     (if (and (consp x) (= (length x) 2))
+			 (list (car x) (nth 1 x) t)
+		       x))
+		   val)))
+
+(defun org-get-packages-alist (var)
+
+  "Get the packages alist and make sure it has 3 elements per entry."
+  (mapcar (lambda (x)
+	    (if (and (consp x) (= (length x) 2))
+		(list (car x) (nth 1 x) t)
+	      x))
+	  (default-value var)))
+
 ;; The following variables are defined here because is it also used
 ;; when formatting latex fragments.  Originally it was part of the
 ;; LaTeX exporter, which is why the name includes "export".
 (defcustom org-export-latex-default-packages-alist
-  '(("AUTO" "inputenc")
-    ("T1"   "fontenc")
-    (""     "fixltx2e")
-    (""     "graphicx")
-    (""     "longtable")
-    (""     "float")
-    (""     "wrapfig")
-    (""     "soul")
-    (""     "t1enc")
-    (""     "textcomp")
-    (""     "marvosym")
-    (""     "wasysym")
-    (""     "latexsym")
-    (""     "amssymb")
-    (""     "hyperref")
+  '(("AUTO" "inputenc"  t)
+    ("T1"   "fontenc"   t)
+    (""     "fixltx2e"  nil)
+    (""     "graphicx"  t)
+    (""     "longtable" nil)
+    (""     "float"     nil)
+    (""     "wrapfig"   nil)
+    (""     "soul"      t)
+    (""     "t1enc"     t)
+    (""     "textcomp"  t)
+    (""     "marvosym"  t)
+    (""     "wasysym"   t)
+    (""     "latexsym"  t)
+    (""     "amssymb"   t)
+    (""     "hyperref"  nil)
     "\\tolerance=1000"
     )
   "Alist of default packages to be inserted in the header.
@@ -2997,31 +3014,42 @@ to function properly.
 Therefore you should not modify this variable unless you know what you
 are doing.  The one reason to change it anyway is that you might be loading
 some other package that conflicts with one of the default packages.
-Each cell is of the format \( \"options\" \"package\" \)."
+Each cell is of the format \( \"options\" \"package\" snippet-flag\).
+If SNIPPET-FLAG is t, the package also needs to be included when
+compiling LaTeX snippets into images for inclusion into HTML."
   :group 'org-export-latex
+  :set 'org-set-packages-alist
+  :get 'org-get-packages-alist
   :type '(repeat
 	  (choice
-	   (string :tag "A line of LaTeX")
 	   (list :tag "options/package pair"
 		 (string :tag "options")
-		 (string :tag "package")))))
+		 (string :tag "package")
+		 (boolean :tag "Snippet"))
+	   (string :tag "A line of LaTeX"))))
 
 (defcustom org-export-latex-packages-alist nil
   "Alist of packages to be inserted in every LaTeX the header.
 These will be inserted after `org-export-latex-default-packages-alist'.
-Each cell is of the format \( \"options\" \"package\" \).
-Make sure that you only lis packages here which:
+Each cell is of the format \( \"options\" \"package\" snippet-flag \).
+SNIPPET-FLAG, when t, indicates that this package is also needed when
+turning LaTeX snippets into images for inclusion into HTML.
+Make sure that you only list packages here which:
 - you want in every file
 - do not conflict with the default packages in
   `org-export-latex-default-packages-alist'
 - do not conflict with the setup in `org-format-latex-header'."
   :group 'org-export-latex
+  :set 'org-set-packages-alist
+  :get 'org-get-packages-alist
   :type '(repeat
 	  (choice
-	   (string :tag "A line of LaTeX")
 	   (list :tag "options/package pair"
 		 (string :tag "options")
-		 (string :tag "package")))))
+		 (string :tag "package")
+		 (boolean :tag "Snippet"))
+	   (string :tag "A line of LaTeX"))))
+
 
 (defgroup org-appearance nil
   "Settings for Org-mode appearance."
@@ -3402,21 +3430,22 @@ If TABLE-TYPE is non-nil, also check for table.el-type tables."
 
 (defvar org-table-clean-did-remove-column nil)
 
-(defun org-table-map-tables (function)
+(defun org-table-map-tables (function &optional quietly)
   "Apply FUNCTION to the start of all tables in the buffer."
   (save-excursion
     (save-restriction
       (widen)
       (goto-char (point-min))
       (while (re-search-forward org-table-any-line-regexp nil t)
-	(message "Mapping tables: %d%%" (/ (* 100.0 (point)) (buffer-size)))
+	(unless quietly
+	  (message "Mapping tables: %d%%" (/ (* 100.0 (point)) (buffer-size))))
 	(beginning-of-line 1)
 	(when (looking-at org-table-line-regexp)
 	  (save-excursion (funcall function))
 	  (or (looking-at org-table-line-regexp)
 	      (forward-char 1)))
 	(re-search-forward org-table-any-border-regexp nil 1))))
-  (message "Mapping tables: done"))
+  (unless quietly (message "Mapping tables: done")))
 
 ;; Declare and autoload functions from org-exp.el  & Co
 
@@ -4456,7 +4485,7 @@ The following commands are available:
   (unless org-inhibit-startup
     (when org-startup-align-all-tables
       (let ((bmp (buffer-modified-p)))
-	(org-table-map-tables 'org-table-align)
+	(org-table-map-tables 'org-table-align 'quietly)
 	(set-buffer-modified-p bmp)))
     (when org-startup-indented
       (require 'org-indent)
@@ -4495,7 +4524,7 @@ The following commands are available:
 
 (defconst org-non-link-chars "]\t\n\r<>")
 (defvar org-link-types '("http" "https" "ftp" "mailto" "file" "news"
-			   "shell" "elisp"))
+			   "shell" "elisp" "doi"))
 (defvar org-link-types-re nil
    "Matches a link that has a url-like prefix like \"http:\"")
 (defvar org-link-re-with-space nil
@@ -8678,6 +8707,11 @@ application the system uses for this file type."
 	 ((member type '("http" "https" "ftp" "news"))
 	  (browse-url (concat type ":" (org-link-escape
 					path org-link-escape-chars-browser))))
+
+	 ((string= type "doi")
+	  (browse-url (concat "http://dx.doi.org/"
+                              (org-link-escape
+                               path org-link-escape-chars-browser))))
 
 	 ((member type '("message"))
 	  (browse-url (concat type ":" path)))
@@ -15326,7 +15360,7 @@ Some of the options can be changed using the variable
       (insert (org-splice-latex-header
 	       org-format-latex-header
 	       org-export-latex-default-packages-alist
-	       org-export-latex-packages-alist
+	       org-export-latex-packages-alist t
 	       org-format-latex-header-extra))
       (insert "\n\\begin{document}\n" string "\n\\end{document}\n")
       (require 'org-latex)
@@ -15360,7 +15394,7 @@ Some of the options can be changed using the variable
 	      (delete-file (concat texfilebase e)))
 	pngfile))))
 
-(defun org-splice-latex-header (tpl def-pkg pkg &optional extra)
+(defun org-splice-latex-header (tpl def-pkg pkg snippets-p &optional extra)
   "Fill a LaTeX header template TPL.
 In the template, the following place holders will be recognized:
 
@@ -15375,19 +15409,22 @@ For backward compatibility, if both the positive and the negative place
 holder is missing, the positive one (without the \"NO-\") will be
 assumed to be present at the end of the template.
 DEF-PKG and PKG are assumed to be alists of options/packagename lists.
-EXTRA is a string."
+EXTRA is a string.
+SNIPPETS-P indicates if this is run to create snippet images for HTML."
   (let (rpl (end ""))
     (if (string-match "^[ \t]*\\[\\(NO-\\)?DEFAULT-PACKAGES\\][ \t]*\n?" tpl)
 	(setq rpl (if (or (match-end 1) (not def-pkg))
-		      "" (org-latex-packages-to-string def-pkg t))
+		      "" (org-latex-packages-to-string def-pkg snippets-p t))
 	      tpl (replace-match rpl t t tpl))
-      (if def-pkg (setq end (org-latex-packages-to-string def-pkg))))
+      (if def-pkg (setq end (org-latex-packages-to-string def-pkg snippets-p))))
 
     (if (string-match "\\[\\(NO-\\)?PACKAGES\\][ \t]*\n?" tpl)
 	(setq rpl (if (or (match-end 1) (not pkg))
-		      "" (org-latex-packages-to-string pkg t))
+		      "" (org-latex-packages-to-string pkg snippets-p t))
 	      tpl (replace-match rpl t t tpl))
-      (if pkg (setq end (concat end "\n" (org-latex-packages-to-string pkg)))))
+      (if pkg (setq end
+		    (concat end "\n"
+			    (org-latex-packages-to-string pkg snippets-p)))))
 
     (if (string-match "\\[\\(NO-\\)?EXTRA\\][ \t]*\n?" tpl)
 	(setq rpl (if (or (match-end 1) (not extra))
@@ -15400,11 +15437,13 @@ EXTRA is a string."
 	(concat tpl "\n" end)
       tpl)))
 
-(defun org-latex-packages-to-string (pkg &optional newline)
+(defun org-latex-packages-to-string (pkg &optional snippets-p newline)
   "Turn an alist of packages into a string with the \\usepackage macros."
   (setq pkg (mapconcat (lambda(p)
 			 (cond
 			  ((stringp p) p)
+			  ((and snippets-p (>= (length p) 3) (not (nth 2 p)))
+			   (format "%% Package %s omitted" (cadr p)))
 			  ((equal "" (car p))
 			   (format "\\usepackage{%s}" (cadr p)))
 			  (t
@@ -15930,6 +15969,34 @@ See `org-ctrl-c-ctrl-c-hook' for more information.")
 (defvar org-metareturn-hook nil
   "Hook for functions attaching themselves to `M-RET'.
 See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftup-hook nil
+  "Hook for functions attaching themselves to `S-up'.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftup-final-hook nil
+  "Hook for functions attaching themselves to `S-up'.
+This one runs after all other options except shift-select have been excluded.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftdown-hook nil
+  "Hook for functions attaching themselves to `S-down'.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftdown-final-hook nil
+  "Hook for functions attaching themselves to `S-down'.
+This one runs after all other options except shift-select have been excluded.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftleft-hook nil
+  "Hook for functions attaching themselves to `S-left'.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftleft-final-hook nil
+  "Hook for functions attaching themselves to `S-left'.
+This one runs after all other options except shift-select have been excluded.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftright-hook nil
+  "Hook for functions attaching themselves to `S-right'.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
+(defvar org-shiftright-final-hook nil
+  "Hook for functions attaching themselves to `S-right'.
+This one runs after all other options except shift-select have been excluded.
+See `org-ctrl-c-ctrl-c-hook' for more information.")
 
 (defun org-modifier-cursor-error ()
   "Throw an error, a modified cursor command was applied in wrong context."
@@ -15970,7 +16037,7 @@ See the individual commands for more information."
    ((run-hook-with-args-until-success 'org-shiftmetaleft-hook))
    ((org-at-table-p) (call-interactively 'org-table-delete-column))
    ((org-on-heading-p) (call-interactively 'org-promote-subtree))
-   ((org-at-item-p) (call-interactively 'org-outdent-item))
+   ((org-at-item-p) (call-interactively 'org-outdent-item-tree))
    (t (org-modifier-cursor-error))))
 
 (defun org-shiftmetaright ()
@@ -15983,7 +16050,7 @@ See the individual commands for more information."
    ((run-hook-with-args-until-success 'org-shiftmetaright-hook))
    ((org-at-table-p) (call-interactively 'org-table-insert-column))
    ((org-on-heading-p) (call-interactively 'org-demote-subtree))
-   ((org-at-item-p) (call-interactively 'org-indent-item))
+   ((org-at-item-p) (call-interactively 'org-indent-item-tree))
    (t (org-modifier-cursor-error))))
 
 (defun org-shiftmetaup (&optional arg)
@@ -16012,6 +16079,10 @@ commands for more information."
    ((org-at-item-p) (call-interactively 'org-move-item-down))
    (t (org-modifier-cursor-error))))
 
+(defsubst org-hidden-tree-error ()
+  (error
+   "Hidden subtree, open with TAB or use subtree command M-S-<left>/<right>"))
+
 (defun org-metaleft (&optional arg)
   "Promote heading or move table column to left.
 Calls `org-do-promote' or `org-table-move-column', depending on context.
@@ -16026,12 +16097,14 @@ See the individual commands for more information."
 	     (save-excursion
 	       (goto-char (region-beginning))
 	       (org-on-heading-p))))
+    (when (org-check-for-hidden 'headlines) (org-hidden-tree-error))
     (call-interactively 'org-do-promote))
    ((or (org-at-item-p)
 	(and (org-region-active-p)
 	     (save-excursion
 	       (goto-char (region-beginning))
 	       (org-at-item-p))))
+    (when (org-check-for-hidden 'items) (org-hidden-tree-error))
     (call-interactively 'org-outdent-item))
    (t (call-interactively 'backward-word))))
 
@@ -16049,14 +16122,44 @@ See the individual commands for more information."
 	     (save-excursion
 	       (goto-char (region-beginning))
 	       (org-on-heading-p))))
+    (when (org-check-for-hidden 'headlines) (org-hidden-tree-error))
     (call-interactively 'org-do-demote))
    ((or (org-at-item-p)
 	(and (org-region-active-p)
 	     (save-excursion
 	       (goto-char (region-beginning))
 	       (org-at-item-p))))
+    (when (org-check-for-hidden 'items) (org-hidden-tree-error))
     (call-interactively 'org-indent-item))
    (t (call-interactively 'forward-word))))
+
+(defun org-check-for-hidden (what)
+  "Check if there are hidden headlines/items in the current visual line.
+WHAT can be either `headlines' or `items'.  If the current line is
+an outline or item heading and it has a folded subtree below it,
+this fucntion returns t, nil otherwise."
+  (let ((re (cond
+	     ((eq what 'headlines) (concat "^" org-outline-regexp))
+	     ((eq what 'items) (concat "^" (org-item-re t)))
+	     (t (error "This should not happen"))))
+	beg end)
+    (save-excursion
+      (catch 'exit
+	(if (org-region-active-p)
+	    (setq beg (region-beginning) end (region-end))
+	  (setq beg (point-at-bol))
+	  (beginning-of-line 2)
+	  (while (and (not (eobp)) ;; this is like `next-line'
+		      (get-char-property (1- (point)) 'invisible))
+	    (beginning-of-line 2))
+	  (setq end (point)))
+	(goto-char beg)
+	(goto-char (point-at-eol))
+	(setq end (max end (point)))
+	(while (re-search-forward re end t)
+	  (if (get-char-property (match-beginning 0) 'invisible)
+	      (throw 'exit t)))
+	nil))))
 
 (defun org-metaup (&optional arg)
   "Move subtree up or move table row up.
@@ -16090,6 +16193,7 @@ Calls `org-timestamp-up' or `org-priority-up', or `org-previous-item',
 depending on context.  See the individual commands for more information."
   (interactive "P")
   (cond
+   ((run-hook-with-args-until-success 'org-shiftup-hook))
    ((and org-support-shift-select (org-region-active-p))
     (org-call-for-shift-select 'previous-line))
    ((org-at-timestamp-p t)
@@ -16102,6 +16206,7 @@ depending on context.  See the individual commands for more information."
    ((and (not org-support-shift-select) (org-at-item-p))
     (call-interactively 'org-previous-item))
    ((org-clocktable-try-shift 'up arg))
+   ((run-hook-with-args-until-success 'org-shiftup-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'previous-line))
    (t (org-shiftselect-error))))
@@ -16112,6 +16217,7 @@ Calls `org-timestamp-down' or `org-priority-down', or `org-next-item'
 depending on context.  See the individual commands for more information."
   (interactive "P")
   (cond
+   ((run-hook-with-args-until-success 'org-shiftdown-hook))
    ((and org-support-shift-select (org-region-active-p))
     (org-call-for-shift-select 'next-line))
    ((org-at-timestamp-p t)
@@ -16124,6 +16230,7 @@ depending on context.  See the individual commands for more information."
    ((and (not org-support-shift-select) (org-at-item-p))
     (call-interactively 'org-next-item))
    ((org-clocktable-try-shift 'down arg))
+   ((run-hook-with-args-until-success 'org-shiftdown-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'next-line))
    (t (org-shiftselect-error))))
@@ -16139,6 +16246,7 @@ Depending on context, this does one of the following:
 - on a clocktable definition line, move time block into the future"
   (interactive "P")
   (cond
+   ((run-hook-with-args-until-success 'org-shiftright-hook))
    ((and org-support-shift-select (org-region-active-p))
     (org-call-for-shift-select 'forward-char))
    ((org-at-timestamp-p t) (call-interactively 'org-timestamp-up-day))
@@ -16158,6 +16266,7 @@ Depending on context, this does one of the following:
 	 (org-at-property-p))
     (call-interactively 'org-property-next-allowed-value))
    ((org-clocktable-try-shift 'right arg))
+   ((run-hook-with-args-until-success 'org-shiftright-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'forward-char))
    (t (org-shiftselect-error))))
@@ -16173,6 +16282,7 @@ Depending on context, this does one of the following:
 - on a clocktable definition line, move time block into the past"
   (interactive "P")
   (cond
+   ((run-hook-with-args-until-success 'org-shiftleft-hook))
    ((and org-support-shift-select (org-region-active-p))
     (org-call-for-shift-select 'backward-char))
    ((org-at-timestamp-p t) (call-interactively 'org-timestamp-down-day))
@@ -16192,6 +16302,7 @@ Depending on context, this does one of the following:
 	 (org-at-property-p))
     (call-interactively 'org-property-previous-allowed-value))
    ((org-clocktable-try-shift 'left arg))
+   ((run-hook-with-args-until-success 'org-shiftleft-final-hook))
    (org-support-shift-select
     (org-call-for-shift-select 'backward-char))
    (t (org-shiftselect-error))))
@@ -17738,7 +17849,7 @@ the functionality can be provided as a fall-back.")
   (org-set-local 'fill-paragraph-function 'org-fill-paragraph)
   ;; Adaptive filling: To get full control, first make sure that
   ;; `adaptive-fill-regexp' never matches.  Then install our own matcher.
-  (unless (local-variable-p 'adaptive-fill-regexp)
+  (unless (local-variable-p 'adaptive-fill-regexp (current-buffer))
     (org-set-local 'org-adaptive-fill-regexp-backup
                    adaptive-fill-regexp))
   (org-set-local 'adaptive-fill-regexp "\000")
