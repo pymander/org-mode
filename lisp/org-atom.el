@@ -278,7 +278,7 @@ PROJECT and publishes them as one single atom feed."
 		  (org-export-as-atom entries-plist 'string t))))
 	  (when entries (insert entries))))
       (save-buffer))
-    (or visiting (kill-buffer index-buffer))))
+    (or visiting (kill-buffer index-buffer)))))
 
 ;;;###autoload
 (defun org-publish-org-to-atom (plist filename pub-dir)
