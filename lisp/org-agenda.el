@@ -211,6 +211,7 @@ you can \"misuse\" it to also add other text to the header.  However,
     (const todo-state-up) (const todo-state-down)
     (const effort-up) (const effort-down)
     (const habit-up) (const habit-down)
+    (const alpha-up) (const alpha-down)
     (const user-defined-up) (const user-defined-down))
   "Sorting choices.")
 
@@ -1120,6 +1121,8 @@ user-defined-up    Sort according to `org-agenda-cmp-user-defined', high last.
 user-defined-down  Sort according to `org-agenda-cmp-user-defined', high first.
 habit-up           Put entries that are habits first
 habit-down         Put entries that are habits last
+alpha-up           Sort headlines alphabetically
+alpha-down         Sort headlines alphabetically, reversed
 
 The different possibilities will be tried in sequence, and testing stops
 if one comparison returns a \"not-equal\".  For example, the default
@@ -5208,6 +5211,28 @@ HH:MM."
 	  ((< lb la) +1)
 	  (t nil))))
 
+(defsubst org-cmp-alpha (a b)
+  "Compare the headlines, alphabetically."
+  (let* ((pla (get-text-property 0 'prefix-length a))
+	 (plb (get-text-property 0 'prefix-length b))
+	 (ta (and pla (substring a pla)))
+	 (tb (and plb (substring b plb))))
+    (when pla
+      (if (string-match (concat "\\`[ \t]*" (or (get-text-property 0 'org-todo-regexp a) "")
+				"\\([ \t]*\\[[a-zA-Z0-9]\\]\\)? *") ta)
+	  (setq ta (substring ta (match-end 0))))
+      (setq ta (downcase ta)))
+    (when plb
+      (if (string-match (concat "\\`[ \t]*" (or (get-text-property 0 'org-todo-regexp b) "")
+				"\\([ \t]*\\[[a-zA-Z0-9]\\]\\)? *") tb)
+	  (setq tb (substring tb (match-end 0))))
+      (setq tb (downcase tb)))
+    (cond ((not ta) +1)
+	  ((not tb) -1)
+	  ((string-lessp ta tb) -1)
+	  ((string-lessp tb ta) +1)
+	  (t nil))))
+
 (defsubst org-cmp-tag (a b)
   "Compare the string values of the first tags of A and B."
   (let ((ta (car (last (get-text-property 1 'tags a))))
@@ -5235,25 +5260,39 @@ HH:MM."
 	  ((and (not ha) hb) +1)
 	  (t nil))))
 
+(defsubst org-em (x y list) (or (memq x list) (memq y list)))
+
 (defun org-entries-lessp (a b)
   "Predicate for sorting agenda entries."
   ;; The following variables will be used when the form is evaluated.
   ;; So even though the compiler complains, keep them.
-  (let* ((time-up (org-cmp-time a b))
-	 (time-down (if time-up (- time-up) nil))
-	 (priority-up (org-cmp-priority a b))
-	 (priority-down (if priority-up (- priority-up) nil))
-	 (effort-up (org-cmp-effort a b))
-	 (effort-down (if effort-up (- effort-up) nil))
-	 (category-up (org-cmp-category a b))
-	 (category-down (if category-up (- category-up) nil))
-	 (category-keep (if category-up +1 nil))
-	 (tag-up (org-cmp-tag a b))
-	 (tag-down (if tag-up (- tag-up) nil))
-	 (todo-state-up (org-cmp-todo-state a b))
+  (let* ((ss org-agenda-sorting-strategy-selected)
+	 (time-up         (and (org-em 'time-up 'time-down ss)
+			       (org-cmp-time a b)))
+	 (time-down       (if time-up (- time-up) nil))
+	 (priority-up     (and (org-em 'priority-up 'priority-down ss)
+			       (org-cmp-priority a b)))
+	 (priority-down   (if priority-up (- priority-up) nil))
+	 (effort-up       (and (org-em 'effort-up 'effort-down ss)
+			       (org-cmp-effort a b)))
+	 (effort-down     (if effort-up (- effort-up) nil))
+	 (category-up     (and (or (org-em 'category-up 'category-down ss)
+				   (memq 'category-keep ss))
+			       (org-cmp-category a b)))
+	 (category-down   (if category-up (- category-up) nil))
+	 (category-keep   (if category-up +1 nil))
+	 (tag-up          (and (org-em 'tag-up 'tag-down ss)
+			       (org-cmp-tag a b)))
+	 (tag-down        (if tag-up (- tag-up) nil))
+	 (todo-state-up   (and (org-em 'todo-state-up 'todo-state-down ss)
+			       (org-cmp-todo-state a b)))
 	 (todo-state-down (if todo-state-up (- todo-state-up) nil))
-	 (habit-up (org-cmp-habit-p a b))
-	 (habit-down (if habit-up (- habit-up) nil))
+	 (habit-up        (and (org-em 'habit-up 'habit-down ss)
+			       (org-cmp-habit-p a b)))
+	 (habit-down      (if habit-up (- habit-up) nil))
+	 (alpha-up        (and (org-em 'alpha-up 'alpha-down ss)
+			       (org-cmp-alpha a b)))
+	 (alpha-down      (if alpha-up (- alpha-up) nil))
 	 user-defined-up user-defined-down)
     (if (and org-agenda-cmp-user-defined
 	     (functionp org-agenda-cmp-user-defined))

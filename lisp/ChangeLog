@@ -1,4 +1,19 @@
+2010-04-30  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-agenda.el (org-sorting-choice): New sorting type alpha.
+	(org-cmp-alpha): New defsubst.
+	(org-em): New defsubst.
+	(org-entries-lessp): Only compute needed comparisons.
+
+2010-04-29  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-html.el (org-format-org-table-html): Test all columns
+	for number content.
+
 2010-04-28  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-latex.el (org-export-latex-treat-sub-super-char): Make
+	sure parenthesis matching is consistent.
 
 	* org-table.el (org-table-colgroup-line-p)
 	(org-table-cookie-line-p): New functions.

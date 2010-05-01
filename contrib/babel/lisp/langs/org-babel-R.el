@@ -63,11 +63,17 @@ called by `org-babel-execute-src-block'."
     (let* ((processed-params (org-babel-process-params params))
            (result-type (fourth processed-params))
            (session (org-babel-R-initiate-session (first processed-params) params))
-	   (colnames-p (equal "yes" (cdr (assoc :colnames params))))
-	   (rownames-p (equal "yes" (cdr (assoc :rownames params))))
+	   (colnames-p (cdr (assoc :colnames params)))
+	   (rownames-p (cdr (assoc :rownames params)))
 	   (out-file (cdr (assoc :file params)))
 	   (full-body (org-babel-expand-body:R body params processed-params))
-	   (result (org-babel-R-evaluate session full-body result-type colnames-p rownames-p)))
+	   (result
+	    (org-babel-R-evaluate
+	     session full-body result-type
+	     (or (equal "yes" colnames-p)
+		 (org-babel-pick-name (nth 4 processed-params) colnames-p))
+	     (or (equal "yes" rownames-p)
+		 (org-babel-pick-name (nth 5 processed-params) rownames-p)))))
       (or out-file result))))
 
 (defun org-babel-prep-session:R (session params)
@@ -115,7 +121,7 @@ called by `org-babel-execute-src-block'."
           (insert "\n"))
         (format "%s <- read.table(\"%s\", header=%s, row.names=%s, sep=\"\\t\", as.is=TRUE)"
                 name transition-file
-		(if (and (eq (second value) 'hline) colnames-p) "TRUE" "FALSE")
+		(if (or (eq (second value) 'hline) colnames-p) "TRUE" "FALSE")
 		(if rownames-p "1" "NULL")))
     (format "%s <- %s" name (org-babel-R-quote-tsv-field value))))
 
