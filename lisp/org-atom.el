@@ -417,11 +417,18 @@ Return nil if calling git blame on current file failes."
 
 (defun org-atom-htmlize (string)
   "Return sanitized html markup for STRING."
-  (with-temp-buffer
-    (insert string)
-    (org-mode)
-    (atom-syndication-sanitize
-     (org-export-region-as-html (point-min) (point-max) t 'string))))
+  (let* ((tmpfile (make-temp-file "org-atom-"))
+	 (tmpbuf (find-file-noselect tmpfile))
+	 html)
+    (with-current-buffer tmpbuf
+      (insert string)
+      (org-mode)
+      (save-buffer)
+      (setq html (atom-syndication-sanitize
+		  (org-export-region-as-html
+		   (point-min) (point-max) t 'string))))
+    (kill-buffer tmpbuf)
+    html))
 
 (defun org-atom-looks-like-uuid-p (string)
   "Return non-nil if STRING looks like a uuid."
