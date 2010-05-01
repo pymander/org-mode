@@ -67,7 +67,7 @@
   :type 'string
   :group 'org-export-atom)
 
-(defcustom org-atom-publish-content t
+(defcustom org-atom-publish-content nil
   "Publish feed content.
 
 If unset only publish link to content."
