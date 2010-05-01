@@ -189,7 +189,7 @@ When PUB-DIR is set, use this as the publishing directory."
 		(atom-syndication-element-feed nil
 		 (append
 		  (unless (string= description "")
-		    (list (list 'subtitle (org-trim description))))
+		    (list (list 'subtitle nil (org-trim description))))
 		  (list
 		   (list 'title nil (org-trim atom-title))
 		   (list 'generator nil
