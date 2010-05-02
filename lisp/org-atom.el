@@ -340,41 +340,39 @@ tags as entry category terms."
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
 			published))
 	   (author (or (org-entry-get nil "atom_author")))
-	   (href (org-entry-get nil "atom_href"))
-	   (elist
-	    (append
-	     (if published
-		 (list
-		  (list 'published nil (org-time-string-to-time published))))
-	     (if author
-		 (list (list 'author nil author)))
-	     (when publish-content
-	       (let (beg end content)
-		 (save-excursion
-		   (org-back-to-heading)
-		   (setq beg (point))
-		   (outline-end-of-subtree)
-		   (setq end (point))
-		   (setq content (buffer-substring-no-properties beg end))
-		   (list (list 'content nil content 'html)))))
-	     (if href
-		 (list
-		  (list 'link nil href nil alternate))
-	       (if (and content-url (not (string= content-url "")))
-		   (list
-		    (list
-		     'link nil (concat content-url "#ID-" id) nil "alternate"))))
-	     (if (and publish-tags tags)
-		 (mapcar '(lambda (tag)
-			    (list 'category nil tag))
-			 (split-string tags ":")))
+	   (href (org-entry-get nil "atom_href")))
+      (append
+       (if published
+	   (list
+	    (list 'published nil (org-time-string-to-time published))))
+       (if author
+	   (list (list 'author nil author)))
+       (when publish-content
+	 (let (beg end content)
+	   (save-excursion
+	     (org-back-to-heading)
+	     (setq beg (point))
+	     (outline-end-of-subtree)
+	     (setq end (point))
+	     (setq content (buffer-substring-no-properties beg end))
+	     (list (list 'content nil content 'html)))))
+       (if href
+	   (list
+	    (list 'link nil href nil alternate))
+	 (if (and content-url (not (string= content-url "")))
 	     (list
-	      (list 'title (list (cons 'type 'html)) title)
-	      (list 'updated nil (org-time-string-to-time updated))
-	      (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
-					     (org-atom-looks-like-uuid-p id))
-					"urn:uuid:" id-prefix) id))))))
-      elist)))
+	      (list
+	       'link nil (concat content-url "#ID-" id) nil "alternate"))))
+       (if (and publish-tags tags)
+	   (mapcar '(lambda (tag)
+		      (list 'category nil tag))
+		   (split-string tags ":")))
+       (list
+	(list 'title (list (cons 'type 'html)) title)
+	(list 'updated nil (org-time-string-to-time updated))
+	(list 'id nil (concat (if (and org-atom-prefer-urn-uuid
+				       (org-atom-looks-like-uuid-p id))
+				  "urn:uuid:" id-prefix) id)))))))
 
 (defun org-atom-prepare-headline (&optional pom)
   "Prepare headline at point or marker POM for export.
