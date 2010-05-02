@@ -340,6 +340,7 @@ tags as entry category terms."
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
 			published))
 	   (author (or (org-entry-get nil "atom_author")))
+	   (href (org-entry-get nil "atom_href"))
 	   (elist
 	    (append
 	     (if published
@@ -356,10 +357,13 @@ tags as entry category terms."
 		   (setq end (point))
 		   (setq content (buffer-substring-no-properties beg end))
 		   (list (list 'content nil content 'html)))))
-	     (if (and content-url (not (string= content-url "")))
+	     (if href
 		 (list
-		  (list
-		   'link nil (concat content-url "#ID-" id) nil "alternate")))
+		  (list 'link nil href nil alternate))
+	       (if (and content-url (not (string= content-url "")))
+		   (list
+		    (list
+		     'link nil (concat content-url "#ID-" id) nil "alternate"))))
 	     (if (and publish-tags tags)
 		 (mapcar '(lambda (tag)
 			    (list 'category nil tag))
