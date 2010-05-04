@@ -57,12 +57,12 @@
   :type 'string
   :group 'org-export-atom)
 
-(defcustom org-atom-published-property-name "Created"
+(defcustom org-atom-published-property-name "atom_published"
   "Name of property for publication date."
   :type 'string
   :group 'org-export-atom)
 
-(defcustom org-atom-updated-property-name "Updated"
+(defcustom org-atom-updated-property-name "atom_updated"
   "Name of property for date when entry was updated."
   :type 'string
   :group 'org-export-atom)
