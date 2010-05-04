@@ -111,13 +111,8 @@ then create. Return the initialized session."
 
 (defvar org-babel-octave-wrapper-method
    "%s
-if ischar(ans)
-   fid = fopen('%s', 'w')
-   fprintf(fid, ans)
-   fprintf(fid, '\\n')
-   fclose(fid)
-else
-   save -ascii %s ans
+if ischar(ans), fid = fopen('%s', 'w'); fprintf(fid, '%%s\\n', ans); fclose(fid);
+else, save -ascii %s ans
 end")
 
 (defvar org-babel-octave-eoe-indicator "\'org_babel_eoe\'")
@@ -155,6 +150,7 @@ value of the last statement in BODY, as elisp."
 
 (defun org-babel-octave-evaluate-session (session body result-type &optional matlabp)
   (let* ((tmp-file (make-temp-file "org-babel-results-"))
+	 (wait-file (make-temp-file "org-babel-matlab-emacs-link-wait-signal-"))
 	 (full-body
 	  (case result-type
 	    (output
@@ -162,14 +158,22 @@ value of the last statement in BODY, as elisp."
 	      #'org-babel-chomp
 	      (list body org-babel-octave-eoe-indicator) "\n"))
 	    (value
-	     (mapconcat
-	      #'org-babel-chomp
-	      (list (format org-babel-octave-wrapper-method body tmp-file tmp-file) org-babel-octave-eoe-indicator) "\n"))))
+	     (if (and matlabp org-babel-matlab-with-emacs-link)
+		 (concat
+		  (format org-babel-matlab-emacs-link-wrapper-method
+			  body tmp-file tmp-file wait-file) "\n")
+	       (mapconcat
+		#'org-babel-chomp
+		(list (format org-babel-octave-wrapper-method body tmp-file tmp-file)
+		      org-babel-octave-eoe-indicator) "\n")))))
 	 (raw (if (and matlabp org-babel-matlab-with-emacs-link)
 		  (save-window-excursion
 		    (with-temp-buffer
 		      (insert full-body)
+		      (write-region "" 'ignored wait-file nil nil nil 'excl)
 		      (matlab-shell-run-region (point-min) (point-max))
+		      (message "Waiting for Matlab Emacs Link")
+		      (while (file-exists-p wait-file) (sit-for 0.01))
 		      "")) ;; matlab-shell-run-region doesn't seem to
 			   ;; make *matlab* buffer contents easily
 			   ;; available, so :results output currently
