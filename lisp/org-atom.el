@@ -135,17 +135,17 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'identity)
 	 entries feed filebuf)
-    ;; check mandatory options
-    (when (and (not body-only) (string= atom-url ""))
-      (error "Missing url for feed"))
-    ;; atom entry w/o content MUST have link pointing to the content
-    (when (or (not atom-publish-content) (string= atom-content-url ""))
-      (error "Missing url for feed content"))
     ;; prepare headlines
     (when (and (not (string= atom-map-entries ""))
 	       (> (length
 		   (org-map-entries
 		    'org-atom-prepare-headline atom-map-entries)) 0))
+      ;; check mandatory options
+      (when (and (not body-only) (string= atom-url ""))
+	(error "Missing url for feed"))
+      ;; atom entry w/o content MUST have link pointing to the content
+      (when (and (not atom-publish-content) (string= atom-content-url ""))
+	(error "Missing url for feed content"))
       (unless to-buffer
 	(setq to-buffer (if atom-file
 			    (or (find-buffer-visiting atom-file)
