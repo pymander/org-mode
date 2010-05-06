@@ -133,7 +133,7 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
-	 (atom-syndication-construct-text-html-function 'org-atom-htmlize)
+	 (atom-syndication-construct-text-html-function 'identity)
 	 entries feed filebuf)
     ;; check mandatory options
     (when (and (not body-only) (string= atom-url ""))
@@ -417,8 +417,10 @@ Return nil if calling git blame on current file failes."
 	    (when (re-search-forward "^author-time \\([[:digit:]]+\\)")
 	      (seconds-to-time (string-to-number (match-string 1))))))))))
 
-(defun org-atom-htmlize (string)
-  "Return sanitized html markup for STRING."
+(defun org-atom-htmlize (string url)
+  "Return sanitized html markup for STRING.
+URL is a string with a url that is used to resolve relative
+links."
   (let* ((tmpfile (make-temp-file "org-atom-"))
 	 (tmpbuf (find-file-noselect tmpfile))
 	 html)
@@ -430,7 +432,8 @@ Return nil if calling git blame on current file failes."
 		  (org-export-region-as-html
 		   (point-min) (point-max) t 'string))))
     (kill-buffer tmpbuf)
-    html))
+    (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^:\"]+\\)"
+			      (concat "\\1=\"" url "/\\2\"") html)))
 
 (defun org-atom-looks-like-uuid-p (string)
   "Return non-nil if STRING looks like a uuid."
