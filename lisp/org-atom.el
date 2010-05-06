@@ -355,7 +355,9 @@ tags as entry category terms."
 	     (outline-end-of-subtree)
 	     (setq end (point))
 	     (setq content (buffer-substring-no-properties beg end))
-	     (list (list 'content nil content 'html)))))
+	     (list (list 'content nil
+			 (org-atom-htmlize
+			  content (file-name-directory content-url)) 'html)))))
        (if href
 	   (list
 	    (list 'link nil href nil alternate))
@@ -368,7 +370,10 @@ tags as entry category terms."
 		      (list 'category nil tag))
 		   (split-string tags ":")))
        (list
-	(list 'title (list (cons 'type 'html)) title)
+	(list 'title
+	      (list
+	       (cons 'type 'html))
+	      (org-atom-htmlize title (file-name-directory content-url)))
 	(list 'updated nil (org-time-string-to-time updated))
 	(list 'id nil (concat (if (and org-atom-prefer-urn-uuid
 				       (org-atom-looks-like-uuid-p id))
