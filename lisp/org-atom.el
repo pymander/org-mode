@@ -108,7 +108,7 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (atom-url (org-trim (or (plist-get opt-plist :atom-url) "")))
 	 (atom-content-url (org-trim (or (plist-get opt-plist :atom-content-url)
 					 "")))
-	 (atom-id (org-trim (or (plist-get opt-plist :atom-id) atom-url)))
+	 (atom-id (org-trim (plist-get opt-plist :atom-id)))
 	 (atom-map-entries (org-trim (or (plist-get opt-plist :atom-map-entries)
 					 "")))
 	 (author (plist-get opt-plist :author))
@@ -239,7 +239,7 @@ PROJECT and publishes them as one single atom feed."
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
 			   sitemap-filename))
-	 (atom-id (or (plist-get project-plist :atom-id) atom-url))
+	 (atom-id (plist-get project-plist :atom-id))
 	 (visiting (find-buffer-visiting sitemap-filename))
 	 file sitemap-buffer)
     ;; maybe adjust publication url
