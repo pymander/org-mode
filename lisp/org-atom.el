@@ -227,7 +227,10 @@ PROJECT and publishes them as one single atom feed."
 	 (dir (file-name-as-directory
 	       (plist-get project-plist :base-directory)))
 	 (exclude-regexp (plist-get project-plist :exclude))
-	 (files (nreverse (org-publish-get-base-files project exclude-regexp)))
+	 (include-files (plist-get project-plist :include))
+	 (files (append
+		 include-files
+		 (nreverse (org-publish-get-base-files project exclude-regexp))))
 	 (index-filename (concat dir (or index-filename
 					 (concat "feed."
 						 org-atom-feed-extension))))
