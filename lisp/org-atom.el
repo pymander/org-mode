@@ -231,29 +231,29 @@ PROJECT and publishes them as one single atom feed."
 	 (files (append
 		 include-files
 		 (nreverse (org-publish-get-base-files project exclude-regexp))))
-	 (index-filename (concat dir (or index-filename
+	 (sitemap-filename (concat dir (or sitemap-filename
 					 (concat "feed."
 						 org-atom-feed-extension))))
-	 (index-title (or (plist-get project-plist :index-title)
+	 (sitemap-title (or (plist-get project-plist :sitemap-title)
 			  (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
-			   index-filename))
+			   sitemap-filename))
 	 (atom-id (or (plist-get project-plist :atom-id) atom-url))
-	 (visiting (find-buffer-visiting index-filename))
-	 file index-buffer)
+	 (visiting (find-buffer-visiting sitemap-filename))
+	 file sitemap-buffer)
     ;; maybe adjust publication url
     (unless (and pub-url (string-match-p "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
-    (setq project-plist (plist-put project-plist :atom-title index-title))
-    (with-current-buffer (setq index-buffer
-			       (or visiting (find-file index-filename)))
+    (setq project-plist (plist-put project-plist :atom-title sitemap-title))
+    (with-current-buffer (setq sitemap-buffer
+			       (or visiting (find-file sitemap-filename)))
       (erase-buffer)
       (insert (concat "<?xml version=\"1.0\"?>"
 		      (atom-syndication-element-feed
 		       (append
 			(list
-			 (list 'title nil index-title)
+			 (list 'title nil sitemap-title)
 			 (list 'id nil (concat
 					(if (and org-atom-prefer-urn-uuid
 						 (org-atom-looks-like-uuid-p
@@ -283,7 +283,7 @@ PROJECT and publishes them as one single atom feed."
 		    (unless visiting-file (kill-buffer)))
 		  (when entries (insert entries))))
 	      (save-buffer))
-      (or visiting (kill-buffer index-buffer)))))
+      (or visiting (kill-buffer sitemap-buffer)))))
 
 ;;;###autoload
 (defun org-publish-org-to-atom (plist filename pub-dir)
