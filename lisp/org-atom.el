@@ -258,30 +258,32 @@ PROJECT and publishes them as one single atom feed."
 					(if (and org-atom-prefer-urn-uuid
 						 (org-atom-looks-like-uuid-p
 						  atom-id)
-					    "urn:uuid:" "") atom-id))
-			 (list 'updated nil (current-time))
-			 (list 'link nil atom-url nil "self"))))))
-      (re-search-backward "</feed>")
-      (while (setq file (pop files))
-	(let* ((entries-plist (org-combine-plists
-			       project-plist
-			       (plist-put nil :atom-content-url
-					  (concat
-					   pub-url
-					   (file-relative-name
-					    (file-name-sans-extension file) dir)
-					   (or
-					    (plist-get
-					     project-plist
-					     :atom-content-extension)
-					    ".html")))))
-	       (entries
-		(with-current-buffer (or (find-buffer-visiting file)
-					 (find-file-noselect file))
-		  (org-export-as-atom entries-plist 'string t))))
-	  (when entries (insert entries))))
-      (save-buffer))
-    (or visiting (kill-buffer index-buffer)))))
+						 "urn:uuid:" "") atom-id))
+			       (list 'updated nil (current-time))
+			       (list 'link nil atom-url nil "self"))))))
+	      (re-search-backward "</feed>")
+	      (while (setq file (pop files))
+		(let* ((entries-plist (org-combine-plists
+				       project-plist
+				       (plist-put nil :atom-content-url
+						  (concat
+						   pub-url
+						   (file-relative-name
+						    (file-name-sans-extension file) dir)
+						   (or
+						    (plist-get
+						     project-plist
+						     :atom-content-extension)
+						    ".html")))))
+		       (visiting-file (find-buffer-visiting file))
+		       entries)
+		  (with-current-buffer (or visiting-file
+					   (find-file-noselect file))
+		    (setq entries (org-export-as-atom entries-plist 'string t))
+		    (unless visiting-file (kill-buffer)))
+		  (when entries (insert entries))))
+	      (save-buffer))
+      (or visiting (kill-buffer index-buffer)))))
 
 ;;;###autoload
 (defun org-publish-org-to-atom (plist filename pub-dir)
