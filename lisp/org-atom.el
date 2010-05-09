@@ -217,7 +217,7 @@ When PUB-DIR is set, use this as the publishing directory."
 		(save-buffer))))))))
 
 ;;;###autoload
-(defun org-atom-publish-feed-index (project &optional filename)
+(defun org-atom-publish-feed-sitemap (project &optional filename)
   "Publish feed for set of files in PROJECT.
 Optional argument FILENAME is name of the output file.
 
