@@ -31,10 +31,6 @@
 (require 'org-exp)
 (eval-when-compile (require 'cl))
 
-(defconst org-atom-uuid-regexp
-  "^[[:xdigit:]]\\{8\\}\\(-[[:xdigit:]]\\{4\\}\\)\\{3\\}-[[:xdigit:]]\\{12\\}$"
-  "Regular expression matching a uuid.")
-
 (defconst org-atom-infile-options
   '(("ATOM_MAP_ENTRIES" :atom-map-entries)
     ("ATOM_ID" :atom-id)
@@ -197,7 +193,7 @@ When PUB-DIR is set, use this as the publishing directory."
 			 org-atom-generator-version)
 		   (list 'id nil (concat
 				  (if (and org-atom-prefer-urn-uuid
-					   (org-atom-looks-like-uuid-p atom-id))
+					   (org-uuidgen-p atom-id))
 				      "urn:uuid:" "") atom-id))
 		   (list 'updated nil (if (buffer-file-name)
 					  (nth 5 (file-attributes
@@ -256,7 +252,7 @@ PROJECT and publishes them as one single atom feed."
 			 (list 'title nil sitemap-title)
 			 (list 'id nil (concat
 					(if (and org-atom-prefer-urn-uuid
-						 (org-atom-looks-like-uuid-p
+						 (org-uuidgen-p
 						  atom-id)
 						 "urn:uuid:" "") atom-id))
 			       (list 'updated nil (current-time))
@@ -381,7 +377,7 @@ tags as entry category terms."
 	      (org-atom-htmlize title (file-name-directory content-url)))
 	(list 'updated nil (org-time-string-to-time updated))
 	(list 'id nil (concat (if (and org-atom-prefer-urn-uuid
-				       (org-atom-looks-like-uuid-p id))
+				       (org-uuidgen-p id))
 				  "urn:uuid:" id-prefix) id)))))))
 
 (defun org-atom-prepare-headline (&optional pom)
@@ -444,10 +440,6 @@ links."
     (kill-buffer tmpbuf)
     (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^:\"]+\\)"
 			      (concat "\\1=\"" url "/\\2\"") html)))
-
-(defun org-atom-looks-like-uuid-p (string)
-  "Return non-nil if STRING looks like a uuid."
-  (string-match-p org-atom-uuid-regexp string))
 
 ;; add infile options
 (dolist (opt org-atom-infile-options)
