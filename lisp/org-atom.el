@@ -394,7 +394,7 @@ If POM is ommited, prepare headline at point."
 	  (dtime (or (org-entry-get nil org-atom-published-property-name)
 		     (org-entry-get nil org-atom-updated-property-name))))
       (unless dtime
-	(org-entry-put nil org-atom-published-property-name
+	(org-entry-put nil org-atom-updated-property-name
 		       (concat "["
 			       (substring
 				(format-time-string
