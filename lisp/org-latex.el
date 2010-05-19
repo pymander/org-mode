@@ -580,8 +580,8 @@ non-nil, create a buffer with that name and export to that
 buffer.  If TO-BUFFER is the symbol `string', don't leave any
 buffer behind but just return the resulting LaTeX as a string.
 When BODY-ONLY is set, don't produce the file header and footer,
-simply return the content of \begin{document}...\end{document},
-without even the \begin{document} and \end{document} commands.
+simply return the content of \\begin{document}...\\end{document},
+without even the \\begin{document} and \\end{document} commands.
 when PUB-DIR is set, use this as the publishing directory."
   (interactive "P")
   (when (and (not body-only) arg (listp arg)) (setq body-only t))
@@ -1289,7 +1289,8 @@ links, keywords, lists, tables, fixed-width"
 			(cdr todo-markup) (car todo-markup)))
 		   (t (cdr (or (assoc (match-string 1) todo-markup)
 			       (car todo-markup))))))
-	(replace-match (format fmt (match-string 1)) t t)))
+	(replace-match (org-export-latex-protect-string
+			(format fmt (match-string 1))) t t)))
     ;; convert priority string
     (when (re-search-forward "\\[\\\\#.\\]" nil t)
       (if (plist-get remove-list :priority)
@@ -1326,7 +1327,7 @@ links, keywords, lists, tables, fixed-width"
 	(unless (or
 		 ;; check for comment line
 		 (save-excursion (goto-char (match-beginning 0))
-				 (equal (char-after (point-at-bol)) ?#))
+				 (org-in-indented-comment-line))
 		 ;; Check if this is a defined entity, so that is may need conversion
 		 (org-entity-get (match-string 1)))
 	  (add-text-properties (match-beginning 0) (match-end 0)
@@ -1591,7 +1592,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
                   longtblp (and attr (stringp attr)
                                 (string-match "\\<longtable\\>" attr))
                   align (and attr (stringp attr)
-                             (string-match "\\<align=\\([^ \t\n\r,]+\\)" attr)
+                             (string-match "\\<align=\\([^ \t\n\r]+\\)" attr)
                              (match-string 1 attr))
                   floatp (or caption label))
 	    (setq caption (and caption (org-export-latex-fontify-headline caption)))
@@ -1822,7 +1823,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 	    (attr (or (org-find-text-property-in-string 'org-attributes raw-path)
 		      (plist-get org-export-latex-options-plist :latex-image-options)))
 	    (label (org-find-text-property-in-string 'org-label raw-path))
-	    imgp radiop
+	    imgp radiop fnc
 	    ;; define the path of the link
 	    (path (cond
 		   ((member type '("coderef"))
@@ -1876,20 +1877,29 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 		(setq path (org-export-latex-protect-amp path)
 		      desc (org-export-latex-protect-amp desc)))
 	      (insert (format org-export-latex-hyperref-format path desc)))
+
+	     ((functionp (setq fnc (nth 2 (assoc type org-link-protocols))))
+	      ;; The link protocol has a function for formatting the link
+	      (insert
+	       (save-match-data
+		 (funcall fnc (org-link-unescape raw-path) desc 'latex))))
+
 	     (t (insert "\\texttt{" desc "}")))))))
 
 
 (defun org-export-latex-format-image (path caption label attr)
   "Format the image element, depending on user settings."
-  (let (ind floatp wrapp placement figenv)
+  (let (ind floatp wrapp multicolumnp placement figenv)
     (setq floatp (or caption label))
     (setq ind (org-get-text-property-any 0 'original-indentation path))
     (when (and attr (stringp attr))
       (if (string-match "[ \t]*\\<wrap\\>" attr)
 	  (setq wrapp t floatp nil attr (replace-match "" t t attr)))
       (if (string-match "[ \t]*\\<float\\>" attr)
-	  (setq wrapp nil floatp t attr (replace-match "" t t attr))))
-
+	  (setq wrapp nil floatp t attr (replace-match "" t t attr)))
+      (if (string-match "[ \t]*\\<multicolumn\\>" attr)
+	  (setq multicolumnp t attr (replace-match "" t t attr))))
+    
     (setq placement
 	  (cond
 	   (wrapp "{l}{0.5\\textwidth}")
@@ -1912,6 +1922,11 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 \\includegraphics[%attr]{%path}
 \\caption{%labelcmd%caption}
 \\end{wrapfigure}")
+	   (multicolumnp "\\begin{figure*}%placement
+\\centering
+\\includegraphics[%attr]{%path}
+\\caption{%labelcmd%caption}
+\\end{figure*}")
 	   (floatp "\\begin{figure}%placement
 \\centering
 \\includegraphics[%attr]{%path}
@@ -2060,7 +2075,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
       (unless (or 
 	       ;; check for comment line
 	       (save-excursion (goto-char (match-beginning 0))
-			       (equal (char-after (point-at-bol)) ?#))
+			       (org-in-indented-comment-line))
 	       ;; Check if this is a defined entity, so that is may need conversion
 	       (org-entity-get (match-string 1))
 	       )

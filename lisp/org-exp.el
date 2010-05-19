@@ -704,7 +704,7 @@ modified) list.")
 		    "LINK_UP" "LINK_HOME" "SETUPFILE" "STYLE"
 		    "LATEX_HEADER" "LATEX_CLASS"
 		    "EXPORT_SELECT_TAGS" "EXPORT_EXCLUDE_TAGS"
-		    "KEYWORDS" "DESCRIPTION" "MACRO" "BIND")
+		    "KEYWORDS" "DESCRIPTION" "MACRO" "BIND" "XSLT")
 		  (mapcar 'car org-export-inbuffer-options-extra))))
 	    p key val text options a pr style
 	    latex-header latex-class macros letbind
@@ -740,6 +740,8 @@ modified) list.")
 	    (setq options (concat val " " options)))
 	   ((string-equal key "BIND")
 	    (push (read (concat "(" val ")")) letbind))
+	   ((string-equal key "XSLT")
+	    (setq p (plist-put p :xslt val)))
 	   ((string-equal key "LINK_UP")
 	    (setq p (plist-put p :link-up val)))
 	   ((string-equal key "LINK_HOME")
@@ -885,7 +887,7 @@ value of `org-export-run-in-background'."
 \[1]   only export the current subtree
 \[SPC] publish enclosing subtree (with LaTeX_CLASS or EXPORT_FILE_NAME prop)
 
-\[a/n/u] export as ASCII/Latin-1/UFT-8         [A/N/U] to temporary buffer
+\[a/n/u] export as ASCII/Latin-1/UTF-8         [A/N/U] to temporary buffer
 
 \[h] export as HTML      [H] to temporary buffer   [R] export region
 \[b] export as HTML and open in browser
@@ -2165,7 +2167,9 @@ INDENT was the original indentation of the block."
 	     ((eq backend 'html)
 	      ;; We are exporting to HTML
 	      (when lang
-		(require 'htmlize nil t)
+		(if (featurep 'xemacs)
+		    (require 'htmlize)
+		  (require 'htmlize nil t))
 		(when (not (fboundp 'htmlize-region-for-paste))
 		  ;; we do not have htmlize.el, or an old version of it
 		  (setq lang nil)
@@ -2570,6 +2574,7 @@ Does include HTML export options as well as TODO and CATEGORY stuff."
 #+EXPORT_EXCLUDE_TAGS: %s
 #+LINK_UP:   %s
 #+LINK_HOME: %s
+#+XSLT: 
 #+CATEGORY:  %s
 #+SEQ_TODO:  %s
 #+TYP_TODO:  %s

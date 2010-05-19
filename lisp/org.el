@@ -1477,9 +1477,38 @@ you can use this variable to set the application for a given file
 extension.  The entries in this list are cons cells where the car identifies
 files and the cdr the corresponding command.  Possible values for the
 file identifier are
- \"regex\"     Regular expression matched against the file name.  For backward
-               compatibility, this can also be a string with only alphanumeric
-               characters, which is then interpreted as an extension.
+ \"string\"    A string as a file identifier can be interpreted in different 
+               ways, depending on its contents:
+               
+               - Alphanumeric characters only:
+                 Match links with this file extension.
+                 Example: (\"pdf\" . \"evince %s\")
+                          to open PDFs with evince.
+
+               - Regular expression: Match links where the
+                 filename matches the regexp.  If you want to
+                 use groups here, use shy groups.
+
+                 Example: (\"\\.x?html\\'\" . \"firefox %s\")
+                          (\"\\(?:xhtml\\|html\\)\" . \"firefox %s\")
+                          to open *.html and *.xhtml with firefox.
+
+               - Regular expression which contains (non-shy) groups:
+                 Match links where the whole link, including \"::\", and
+                 anything after that, matches the regexp.
+                 In a custom command string, %1, %2, etc. are replaced with
+                 the parts of the link that were matched by the groups.
+                 For backwards compatibility, if a command string is given
+                 that does not use any of the group matches, this case is
+                 handled identically to the second one (i.e. match against
+                 file name only).
+
+                 In a custom lisp form, you can access the group matches with
+                 (match-string n link).
+
+                 Example: (\"\\.pdf::\\(\\d+\\)\\'\" . \"evince -p %1 %s\")
+                     to open [[file:document.pdf::5]] with evince at page 5.
+
  `directory'   Matches a directory
  `remote'      Matches a remote file, accessible through tramp or efs.
                Remote files most likely should be visited through Emacs
@@ -1682,6 +1711,17 @@ subtree of the current entry should be excluded and move point to the end
 of the subtree."
   :group 'org-refile
   :type 'function)
+
+(defcustom org-refile-use-cache nil
+  "Non-nil means cache refile targets to speed up the process.
+The cache for a particular file will be updated automatically when
+the buffer has been killed, or when any of the marker used for flagging
+refile targets no longer points at a live buffer.
+If you have added new entries to a buffer that might themselves be targets,
+you need to clear the cache manually by pressing `C-0 C-c C-w' or, if you
+find that easier, `C-u C-u C-u C-c C-w'."
+  :group 'org-refile
+  :type 'boolean)
 
 (defcustom org-refile-use-outline-path nil
   "Non-nil means provide refile targets as paths.
@@ -2114,6 +2154,7 @@ The value is an alist, with the car being a symbol indicating the note
 context, and the cdr is the heading to be used.  The heading may also be the
 empty string.
 %t in the heading will be replaced by a time stamp.
+%T will be an acive time stamp instead the default inacive one
 %s will be replaced by the new TODO state, in double quotes.
 %S will be replaced by the old TODO state, in double quotes.
 %u will be replaced by the user name.
@@ -3121,6 +3162,12 @@ org-level-* faces."
   :group 'org-appearance
   :type 'boolean)
 
+(defcustom org-pretty-entities nil
+  "Non-nil means show entities as UTF8 characters.
+When nil, the \\name form remains in the buffer."
+  :group 'org-appearance
+  :type 'boolean)
+
 (defvar org-emph-re nil
   "Regular expression for matching emphasis.")
 (defvar org-verbatim-re nil
@@ -3960,7 +4007,9 @@ After a match, the following groups carry important information:
     ("noptag" org-tag-persistent-alist nil)
     ("hideblocks" org-hide-block-startup t)
     ("nohideblocks" org-hide-block-startup nil)
-    ("beamer" org-startup-with-beamer-mode t))
+    ("beamer" org-startup-with-beamer-mode t)
+    ("entitiespretty" org-pretty-entities t)
+    ("entitiesplain" org-pretty-entities nil))
   "Variable associated with STARTUP options for org-mode.
 Each element is a list of three items: The startup options as written
 in the #+STARTUP line, the corresponding variable, and the value to
@@ -4000,10 +4049,9 @@ means to push this value onto the list in the variable.")
 			  (re-search-forward re nil t)))
 	    (setq key (upcase (match-string 1 ext-setup-or-nil))
 		  value (org-match-string-no-properties 2 ext-setup-or-nil))
+	    (if (stringp value) (setq value (org-trim value)))
 	    (cond
 	     ((equal key "CATEGORY")
-	      (if (string-match "[ \t]+$" value)
-		  (setq value (replace-match "" t t value)))
 	      (setq cat value))
 	     ((member key '("SEQ_TODO" "TODO"))
 	      (push (cons 'sequence (org-split-string value splitre)) kwds))
@@ -4054,8 +4102,7 @@ means to push this value onto the list in the variable.")
 		      (set (make-local-variable var) (symbol-value var))
 		      (add-to-list var val))))))
 	     ((equal key "ARCHIVE")
-	      (string-match " *$" value)
-	      (setq arch (replace-match "" t t value))
+	      (setq arch value)
 	      (remove-text-properties 0 (length arch)
 				      '(face t fontified t) arch))
 	     ((equal key "LATEX_CLASS")
@@ -4261,10 +4308,10 @@ means to push this value onto the list in the variable.")
 	  (not (file-readable-p file)))
       (if noerror
 	  (progn
-	    (message "Cannot read file %s" file)
+	    (message "Cannot read file \"%s\"" file)
 	    (ding) (sit-for 2)
 	    "")
-	(error "Cannot read file %s" file))
+	(error "Cannot read file \"%s\"" file))
     (with-temp-buffer
       (insert-file-contents file)
       (buffer-string))))
@@ -4435,6 +4482,9 @@ The following commands are available:
   (org-set-autofill-regexps)
   (setq indent-line-function 'org-indent-line-function)
   (org-update-radio-target-regexp)
+  ;; Beginning/end of defun
+  (org-set-local 'beginning-of-defun-function 'org-beginning-of-defun)
+  (org-set-local 'end-of-defun-function 'org-end-of-defun)
   ;; Make sure dependence stuff works reliably, even for users who set it
   ;; too late :-(
   (if org-enforce-todo-dependencies
@@ -4449,10 +4499,10 @@ The following commands are available:
 		 'org-block-todo-from-checkboxes))
 
   ;; Comment characters
-  (org-set-local 'comment-start "#")
+  ;; (org-set-local 'comment-start "#")
   (org-set-local 'comment-padding " ")
   (modify-syntax-entry ?# "<")
-  (modify-syntax-entry ?\n ">")
+  ;; (modify-syntax-entry ?\n ">")
 
   ;; Align options lines
   (org-set-local
@@ -5183,6 +5233,7 @@ For plain list items, if they are matched by `outline-regexp', this returns
 		 '(1 'org-archived prepend))
 	   ;; Specials
 	   '(org-do-latex-and-special-faces)
+	   '(org-fontify-entities)
 	   ;; Code
 	   '(org-activate-code (1 'org-code t))
 	   ;; COMMENT
@@ -5199,6 +5250,37 @@ For plain list items, if they are matched by `outline-regexp', this returns
     (org-set-local 'font-lock-defaults
 		   '(org-font-lock-keywords t nil nil backward-paragraph))
     (kill-local-variable 'font-lock-keywords) nil))
+
+(defun org-toggle-pretty-entities ()
+  "Toggle the compostion display of entities as UTF8 characters."
+  (interactive)
+  (org-set-local 'org-pretty-entities (not org-pretty-entities))
+  (org-restart-font-lock)
+  (if org-pretty-entities
+      (message "Entities are displayed as UTF8 characers")
+    (save-restriction
+      (widen)
+      (decompose-region (point-min) (point-max))
+      (message "Entities are displayed plain"))))
+
+(defun org-fontify-entities (limit)
+  "Find an entity to fontify."
+  (let (ee)
+    (when org-pretty-entities
+      (catch 'match
+	(while (re-search-forward "\\\\\\([a-zA-Z][a-zA-Z0-9]*\\)[^[:alnum:]]"
+				  limit t)
+	  (if (and (setq ee (org-entity-get (match-string 1)))
+		   (= (length (nth 6 ee)) 1))
+	      (progn
+		(add-text-properties
+		 (match-beginning 0) (match-end 1)
+		 (list 'font-lock-fontified t))
+		(compose-region (match-beginning 0) (match-end 1)
+				(nth 6 ee) nil)
+		(backward-char 1)
+		(throw 'match t))))
+	nil))))
 
 (defun org-fontify-like-in-org-mode (s &optional odd-levels)
   "Fontify string S like in Org-mode"
@@ -5601,7 +5683,7 @@ With a numeric prefix, show all headlines up to that level."
     (org-set-visibility-according-to-property 'no-cleanup)
     (org-cycle-hide-archived-subtrees 'all)
     (org-cycle-hide-drawers 'all)
-    (org-cycle-show-empty-lines 'all)))
+    (org-cycle-show-empty-lines t)))
 
 (defun org-set-visibility-according-to-property (&optional no-cleanup)
   "Switch subtree visibilities according to :VISIBILITY: property."
@@ -7066,14 +7148,15 @@ If yes, remember the marker and the distance to BEG."
   "Clone the task (subtree) at point N times.
 The clones will be inserted as siblings.
 
-In interactive use, the user will be prompted for the number of clones
-to be produced, and for a time SHIFT, which may be a repeater as used
-in time stamps, for example `+3d'.
+In interactive use, the user will be prompted for the number of
+clones to be produced, and for a time SHIFT, which may be a
+repeater as used in time stamps, for example `+3d'.
 
-When a valid repeater is given and the entry contains any time stamps,
-the clones will become a sequence in time, with time stamps in the
-subtree shifted for each clone produced.  If SHIFT is nil or the
-empty string, time stamps will be left alone.
+When a valid repeater is given and the entry contains any time
+stamps, the clones will become a sequence in time, with time
+stamps in the subtree shifted for each clone produced.  If SHIFT
+is nil or the empty string, time stamps will be left alone.  The
+ID property of the original subtree is removed.
 
 If the original subtree did contain time stamps with a repeater,
 the following will happen:
@@ -7107,7 +7190,12 @@ and still retain the repeater to cover future instances of the task."
     (org-end-of-subtree t t)
     (or (bolp) (insert "\n"))
     (setq end (point))
-    (setq template (buffer-substring beg end))
+    (setq template (let ((tmpl (buffer-substring beg end)))
+		     (with-temp-buffer
+		       (insert tmpl)
+		       (org-mode)
+		       (org-entry-delete nil "ID")
+		       (buffer-string))))
     (when (and doshift
 	       (string-match "<[^<>\n]+ \\+[0-9]+[dwmy][^<>\n]*>" template))
       (delete-region beg end)
@@ -9393,12 +9481,63 @@ on the system \"/user@host:\"."
 (defvar org-agenda-new-buffers nil
   "Buffers created to visit agenda files.")
 
+(defvar org-refile-cache nil
+  "Cache for refile targets.")
+
+
+(defvar org-refile-markers nil
+  "All the markers used for caching refile locations.")
+
+(defun org-refile-marker (pos)
+  "Get a new refile marker, but only if caching is in use."
+  (if (not org-refile-use-cache)
+      pos
+    (let ((m (make-marker)))
+      (move-marker m pos)
+      (push m org-refile-markers)
+      m)))
+
+(defun org-refile-cache-clear ()
+  "Clear the refile cache and disable all the markers."
+  (mapc (lambda (m) (move-marker m nil)) org-refile-markers)
+  (setq org-refile-markers nil)
+  (setq org-refile-cache nil)
+  (message "Refile cache has been cleared"))
+
+(defun org-refile-cache-check-set (set)
+  "Check if all the markers in the cache still have live buffers."
+  (catch 'exit
+    (while set
+      (if (not (marker-buffer (nth 3 (pop set))))
+	  (progn
+	    (message "not found") (sit-for 3)
+	    (throw 'exit nil))))
+    t))
+
+(defun org-refile-cache-put (set &rest identifiers)
+  "Push the refile targets SET into the cache, under IDENTIFIERS."
+  (let* ((key (sha1 (prin1-to-string identifiers)))
+	 (entry (assoc key org-refile-cache)))
+    (if entry
+	(setcdr entry set)
+      (push (cons key set) org-refile-cache))))
+
+(defun org-refile-cache-get (&rest identifiers)
+  "Retrieve the cached value for refile targets given by IDENTIFIERS."
+  (cond
+   ((not org-refile-cache) nil)
+   ((not org-refile-use-cache) (org-refile-cache-clear))
+   (t
+    (let ((set (cdr (assoc (sha1 (prin1-to-string identifiers))
+			   org-refile-cache))))
+      (and set (org-refile-cache-check-set set) set)))))
+
 (defun org-get-refile-targets (&optional default-buffer)
   "Produce a table with refile targets."
   (let ((case-fold-search nil)
 	;; otherwise org confuses "TODO" as a kw and "Todo" as a word
 	(entries (or org-refile-targets '((nil . (:level . 1)))))
-	targets txt re files f desc descre fast-path-p level pos0)
+	targets tgs txt re files f desc descre fast-path-p level pos0)
     (message "Getting targets...")
     (with-current-buffer (or default-buffer (current-buffer))
       (while (setq entry (pop entries))
@@ -9437,46 +9576,63 @@ on the system \"/user@host:\"."
 	(while (setq f (pop files))
 	  (with-current-buffer
 	      (if (bufferp f) f (org-get-agenda-file-buffer f))
-	    (if (bufferp f) (setq f (buffer-file-name (buffer-base-buffer f))))
-	    (setq f (and f (expand-file-name f)))
-	    (if (eq org-refile-use-outline-path 'file)
-		(push (list (file-name-nondirectory f) f nil nil) targets))
-	    (save-excursion
-	      (save-restriction
-		(widen)
-		(goto-char (point-min))
-		(while (re-search-forward descre nil t)
-		  (goto-char (setq pos0 (point-at-bol)))
-		  (catch 'next
-		    (when org-refile-target-verify-function
-		      (save-match-data
-			(or (funcall org-refile-target-verify-function)
-			    (throw 'next t))))
-		    (when (looking-at org-complex-heading-regexp)
-		      (setq level (org-reduced-level (- (match-end 1) (match-beginning 1)))
-			    txt (org-link-display-format (match-string 4))
-			    re (concat "^" (regexp-quote
-					    (buffer-substring (match-beginning 1)
-							      (match-end 4)))))
-		      (if (match-end 5) (setq re (concat re "[ \t]+"
-							 (regexp-quote
-							  (match-string 5)))))
-		      (setq re (concat re "[ \t]*$"))
-		      (when org-refile-use-outline-path
-			(setq txt (mapconcat 'org-protect-slash
-					     (append
-					      (if (eq org-refile-use-outline-path 'file)
-						  (list (file-name-nondirectory
-							 (buffer-file-name (buffer-base-buffer))))
-						(if (eq org-refile-use-outline-path 'full-file-path)
-						    (list (buffer-file-name (buffer-base-buffer)))))
-					      (org-get-outline-path fast-path-p level txt)
-					      (list txt))
-					     "/")))
-		      (push (list txt f re (point)) targets)))
-		  (when (= (point) pos0)
-		    ;; verification function has not moved point
-		    (goto-char (point-at-eol))))))))))
+	    (or
+	     (setq tgs (org-refile-cache-get (buffer-file-name) descre))
+	     (progn
+	       (if (bufferp f) (setq f (buffer-file-name
+					(buffer-base-buffer f))))
+	       (setq f (and f (expand-file-name f)))
+	       (if (eq org-refile-use-outline-path 'file)
+		   (push (list (file-name-nondirectory f) f nil nil) tgs))
+	       (save-excursion
+		 (save-restriction
+		   (widen)
+		   (goto-char (point-min))
+		   (while (re-search-forward descre nil t)
+		     (goto-char (setq pos0 (point-at-bol)))
+		     (catch 'next
+		       (when org-refile-target-verify-function
+			 (save-match-data
+			   (or (funcall org-refile-target-verify-function)
+			       (throw 'next t))))
+		       (when (looking-at org-complex-heading-regexp)
+			 (setq level (org-reduced-level
+				      (- (match-end 1) (match-beginning 1)))
+			       txt (org-link-display-format (match-string 4))
+			       re (concat "^" (regexp-quote
+					       (buffer-substring
+						(match-beginning 1)
+						(match-end 4)))))
+			 (if (match-end 5) (setq re (concat
+						     re "[ \t]+"
+						     (regexp-quote
+						      (match-string 5)))))
+			 (setq re (concat re "[ \t]*$"))
+			 (when org-refile-use-outline-path
+			   (setq txt (mapconcat
+				      'org-protect-slash
+				      (append
+				       (if (eq org-refile-use-outline-path
+					       'file)
+					   (list (file-name-nondirectory
+						  (buffer-file-name
+						   (buffer-base-buffer))))
+					 (if (eq org-refile-use-outline-path
+						 'full-file-path)
+					     (list (buffer-file-name
+						    (buffer-base-buffer)))))
+				       (org-get-outline-path fast-path-p
+							     level txt)
+				       (list txt))
+				      "/")))
+			 (push (list txt f re (org-refile-marker (point)))
+			       tgs)))
+		     (when (= (point) pos0)
+		       ;; verification function has not moved point
+		       (goto-char (point-at-eol))))))))
+	    (org-refile-cache-put tgs (buffer-file-name) descre)
+	    (setq targets (append tgs targets))
+	    ))))
     (message "Getting targets...done")
     (nreverse targets)))
 
@@ -9596,106 +9752,112 @@ With a prefix argument of `2', refile to the running clock.
 
 RFLOC can be a refile location obtained in a different way.
 
-See also `org-refile-use-outline-path' and `org-completion-use-ido'"
-  (interactive "P")
-  (let* ((cbuf (current-buffer))
-	 (regionp (org-region-active-p))
-	 (region-start (and regionp (region-beginning)))
-	 (region-end (and regionp (region-end)))
-	 (region-length (and regionp (- region-end region-start)))
-	 (filename (buffer-file-name (buffer-base-buffer cbuf)))
-	 pos it nbuf file re level reversed)
-    (setq last-command nil)
-    (when regionp
-      (goto-char region-start)
-      (or (bolp) (goto-char (point-at-bol)))
-      (setq region-start (point))
-      (unless (org-kill-is-subtree-p
-	       (buffer-substring region-start region-end))
-	(error "The region is not a (sequence of) subtree(s)")))
-    (if (equal goto '(16))
-	(org-refile-goto-last-stored)
-      (when (or
-	     (and (equal goto 2)
-		  org-clock-hd-marker (marker-buffer org-clock-hd-marker)
-		  (prog1
-		      (setq it (list (or org-clock-heading "running clock")
-				     (buffer-file-name
-				      (marker-buffer org-clock-hd-marker))
-				     ""
-				     (marker-position org-clock-hd-marker)))
-		    (setq goto nil)))
-	     (setq it (or rfloc
-			  (save-excursion
-			    (org-refile-get-location
-			     (if goto "Goto: " "Refile to: ") default-buffer
-			     org-refile-allow-creating-parent-nodes)))))
-	(setq file (nth 1 it)
-	      re (nth 2 it)
-	      pos (nth 3 it))
-	(if (and (not goto)
-		 pos
-		 (equal (buffer-file-name) file)
-		 (if regionp
-		     (and (>= pos region-start)
-			  (<= pos region-end))
-		   (and (>= pos (point))
-			(< pos (save-excursion
-				 (org-end-of-subtree t t))))))
-	    (error "Cannot refile to position inside the tree or region"))
+See also `org-refile-use-outline-path' and `org-completion-use-ido'.
 
-	(setq nbuf (or (find-buffer-visiting file)
-		       (find-file-noselect file)))
-	(if goto
-	    (progn
-	      (switch-to-buffer nbuf)
-	      (goto-char pos)
-	      (org-show-context 'org-goto))
-	  (if regionp
+If you are using target caching (see `org-refile-use-cache'),
+You have to clear the target cache in order to find new targets.
+This can be done with a 0 prefix: `C-0 C-c C-w'"
+  (interactive "P")
+  (if (member goto '(0 (64)))
+      (org-refile-cache-clear)
+    (let* ((cbuf (current-buffer))
+	   (regionp (org-region-active-p))
+	   (region-start (and regionp (region-beginning)))
+	   (region-end (and regionp (region-end)))
+	   (region-length (and regionp (- region-end region-start)))
+	   (filename (buffer-file-name (buffer-base-buffer cbuf)))
+	   pos it nbuf file re level reversed)
+      (setq last-command nil)
+      (when regionp
+	(goto-char region-start)
+	(or (bolp) (goto-char (point-at-bol)))
+	(setq region-start (point))
+	(unless (org-kill-is-subtree-p
+		 (buffer-substring region-start region-end))
+	  (error "The region is not a (sequence of) subtree(s)")))
+      (if (equal goto '(16))
+	  (org-refile-goto-last-stored)
+	(when (or
+	       (and (equal goto 2)
+		    org-clock-hd-marker (marker-buffer org-clock-hd-marker)
+		    (prog1
+			(setq it (list (or org-clock-heading "running clock")
+				       (buffer-file-name
+					(marker-buffer org-clock-hd-marker))
+				       ""
+				       (marker-position org-clock-hd-marker)))
+		      (setq goto nil)))
+	       (setq it (or rfloc
+			    (save-excursion
+			      (org-refile-get-location
+			       (if goto "Goto: " "Refile to: ") default-buffer
+			       org-refile-allow-creating-parent-nodes)))))
+	  (setq file (nth 1 it)
+		re (nth 2 it)
+		pos (nth 3 it))
+	  (if (and (not goto)
+		   pos
+		   (equal (buffer-file-name) file)
+		   (if regionp
+		       (and (>= pos region-start)
+			    (<= pos region-end))
+		     (and (>= pos (point))
+			  (< pos (save-excursion
+				   (org-end-of-subtree t t))))))
+	      (error "Cannot refile to position inside the tree or region"))
+	  
+	  (setq nbuf (or (find-buffer-visiting file)
+			 (find-file-noselect file)))
+	  (if goto
 	      (progn
-		(org-kill-new (buffer-substring region-start region-end))
-		(org-save-markers-in-region region-start region-end))
-	    (org-copy-subtree 1 nil t))
-	  (with-current-buffer (setq nbuf (or (find-buffer-visiting file)
-					      (find-file-noselect file)))
-	    (setq reversed (org-notes-order-reversed-p))
-	    (save-excursion
-	      (save-restriction
-		(widen)
-		(if pos
-		    (progn
-		      (goto-char pos)
-		      (looking-at outline-regexp)
-		      (setq level (org-get-valid-level (funcall outline-level) 1))
-		      (goto-char
-		       (if reversed
-			   (or (outline-next-heading) (point-max))
-			 (or (save-excursion (org-get-next-sibling))
-			     (org-end-of-subtree t t)
-			     (point-max)))))
-		  (setq level 1)
-		  (if (not reversed)
-		      (goto-char (point-max))
-		    (goto-char (point-min))
-		    (or (outline-next-heading) (goto-char (point-max)))))
-		(if (not (bolp)) (newline))
-		(org-paste-subtree level)
-		(when org-log-refile
-		  (org-add-log-setup 'refile nil nil 'findpos
-				     org-log-refile)
-		  (unless (eq org-log-refile 'note)
-		    (save-excursion (org-add-log-note))))
-		(and org-auto-align-tags (org-set-tags nil t))
-		(bookmark-set "org-refile-last-stored")
-		(if (fboundp 'deactivate-mark) (deactivate-mark))
-		(run-hooks 'org-after-refile-insert-hook))))
-	  (if regionp
-	      (delete-region (point) (+ (point) region-length))
-	    (org-cut-subtree))
-	  (when (featurep 'org-inlinetask)
-	    (org-inlinetask-remove-END-maybe))
-	  (setq org-markers-to-move nil)
-	  (message "Refiled to \"%s\"" (car it)))))))
+		(switch-to-buffer nbuf)
+		(goto-char pos)
+		(org-show-context 'org-goto))
+	    (if regionp
+		(progn
+		  (org-kill-new (buffer-substring region-start region-end))
+		  (org-save-markers-in-region region-start region-end))
+	      (org-copy-subtree 1 nil t))
+	    (with-current-buffer (setq nbuf (or (find-buffer-visiting file)
+						(find-file-noselect file)))
+	      (setq reversed (org-notes-order-reversed-p))
+	      (save-excursion
+		(save-restriction
+		  (widen)
+		  (if pos
+		      (progn
+			(goto-char pos)
+			(looking-at outline-regexp)
+			(setq level (org-get-valid-level (funcall outline-level) 1))
+			(goto-char
+			 (if reversed
+			     (or (outline-next-heading) (point-max))
+			   (or (save-excursion (org-get-next-sibling))
+			       (org-end-of-subtree t t)
+			       (point-max)))))
+		    (setq level 1)
+		    (if (not reversed)
+			(goto-char (point-max))
+		      (goto-char (point-min))
+		      (or (outline-next-heading) (goto-char (point-max)))))
+		  (if (not (bolp)) (newline))
+		  (org-paste-subtree level)
+		  (when org-log-refile
+		    (org-add-log-setup 'refile nil nil 'findpos
+				       org-log-refile)
+		    (unless (eq org-log-refile 'note)
+		      (save-excursion (org-add-log-note))))
+		  (and org-auto-align-tags (org-set-tags nil t))
+		  (bookmark-set "org-refile-last-stored")
+		  (if (fboundp 'deactivate-mark) (deactivate-mark))
+		  (run-hooks 'org-after-refile-insert-hook))))
+	    (if regionp
+		(delete-region (point) (+ (point) region-length))
+	      (org-cut-subtree))
+	    (when (featurep 'org-inlinetask)
+	      (org-inlinetask-remove-END-maybe))
+	    (setq org-markers-to-move nil)
+	    (message "Refiled to \"%s\" in file %s" (car it) file)))))))
 
 (defun org-refile-goto-last-stored ()
   "Go to the location where the last refile was stored."
@@ -11347,6 +11509,9 @@ EXTRA is additional text that will be inserted into the notes buffer."
 		   (cons "%U" user-full-name)
 		   (cons "%t" (format-time-string
 			       (org-time-stamp-format 'long 'inactive)
+			       (current-time)))
+		   (cons "%T" (format-time-string
+			       (org-time-stamp-format 'long nil)
 			       (current-time)))
 		   (cons "%s" (if org-log-note-state
 				  (concat "\"" org-log-note-state "\"")
@@ -13670,6 +13835,14 @@ user."
 	    (org-defkey minibuffer-local-map "<"
 			(lambda () (interactive)
 			  (org-eval-in-calendar '(scroll-calendar-right 1))))
+	    (org-defkey minibuffer-local-map "\C-v"
+			(lambda () (interactive)
+			  (org-eval-in-calendar
+			   '(calendar-scroll-left-three-months 1))))
+	    (org-defkey minibuffer-local-map "\M-v"
+			(lambda () (interactive)
+			  (org-eval-in-calendar
+			   '(calendar-scroll-right-three-months 1))))
 	    (run-hooks 'org-read-date-minibuffer-setup-hook)
 	    (unwind-protect
 		(progn
@@ -15486,25 +15659,44 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 		 (length org-inline-image-overlays))
       (message "No images to display inline"))))
 
-(defun org-display-inline-images (&optional include-linked)
+(defun org-display-inline-images (&optional include-linked refresh beg end)
   "Display inline images.
 Normally only links without a description part are inlined, because this
 is how it will work for export.  When INCLUDE-LINKED is set, also links
-with a description part will be inlined."
+with a description part will be inlined.  This can be nice for a quick
+look at those images, but it does not reflect whatexported files will look
+like.
+When REFRESH is set, refresh existing images between BEG and END.
+This will create new image displays only if necessary.
+BEG and END default to the buffer boundaries."
   (interactive "P")
-  (org-remove-inline-images)
-  (goto-char (point-min))
-  (let ((re (concat "\\[\\[\\(file:\\|\\./\\)\\(~?" "[-+./_0-9a-zA-Z]+"
-		    (substring (org-image-file-name-regexp) 0 -2)
-		    "\\)\\]" (if include-linked "" "\\]")))
-	file ov)
-  (while (re-search-forward re nil t)
-    (setq file (expand-file-name (match-string 2)))
-    (when (file-exists-p file)
-      (setq ov (make-overlay (match-beginning 0) (match-end 0)))
-      (overlay-put ov 'display (create-image file))
-      (overlay-put ov 'face 'default)
-      (push ov org-inline-image-overlays)))))
+  (unless refresh
+    (org-remove-inline-images)
+    (clear-image-cache))
+  (save-excursion
+    (save-restriction
+      (widen)
+      (setq beg (or beg (point-min)) end (or end (point-max)))
+      (goto-char (point-min))
+      (let ((re (concat "\\[\\[\\(\\(file:\\)\\|\\([./~]\\)\\)\\([-+~./_0-9a-zA-Z]+"
+			(substring (org-image-file-name-regexp) 0 -2)
+			"\\)\\]" (if include-linked "" "\\]")))
+	    old file ov img)
+	(while (re-search-forward re end t)
+	  (setq old (get-char-property-and-overlay (match-beginning 1)
+						   'org-image-overlay))
+	  (setq file (expand-file-name
+		      (concat (or (match-string 3) "") (match-string 4))))
+	  (when (file-exists-p file)
+	    (if (and (car-safe old) refresh)
+		(image-refresh (overlay-get (cdr old) 'display))
+	      (setq img (create-image file))
+	      (when img
+		(setq ov (make-overlay (match-beginning 0) (match-end 0)))
+		(overlay-put ov 'display img)
+		(overlay-put ov 'face 'default)
+		(overlay-put ov 'org-image-overlay t)
+		(push ov org-inline-image-overlays)))))))))
 
 (defun org-remove-inline-images ()
   "Remove inline display of images."
@@ -15610,7 +15802,6 @@ with a description part will be inlined."
 (org-defkey org-mode-map "\C-c\C-s" 'org-schedule)
 (org-defkey org-mode-map "\C-c\C-d" 'org-deadline)
 (org-defkey org-mode-map "\C-c;"    'org-toggle-comment)
-(org-defkey org-mode-map "\C-c\C-v" 'org-show-todo-tree)
 (org-defkey org-mode-map "\C-c\C-w" 'org-refile)
 (org-defkey org-mode-map "\C-c/"    'org-sparse-tree)   ; Minor-mode reserved
 (org-defkey org-mode-map "\C-c\\"   'org-match-sparse-tree) ; Minor-mode res.
@@ -15682,6 +15873,7 @@ with a description part will be inlined."
 (org-defkey org-mode-map "\C-c\C-x\C-u" 'org-dblock-update)
 (org-defkey org-mode-map "\C-c\C-x\C-l" 'org-preview-latex-fragment)
 (org-defkey org-mode-map "\C-c\C-x\C-v" 'org-toggle-inline-images)
+(org-defkey org-mode-map "\C-c\C-x\\"   'org-toggle-pretty-entities)
 (org-defkey org-mode-map "\C-c\C-x\C-b" 'org-toggle-checkbox)
 (org-defkey org-mode-map "\C-c\C-xp"    'org-set-property)
 (org-defkey org-mode-map "\C-c\C-xe"    'org-set-effort)
@@ -16862,8 +17054,8 @@ See the individual commands for more information."
       ["Complete Keyword" org-complete (assq :todo-keyword (org-context))]
       ["Next keyword set" org-shiftcontrolright (and (> (length org-todo-sets) 1) (org-on-heading-p))]
       ["Previous keyword set" org-shiftcontrolright (and (> (length org-todo-sets) 1) (org-on-heading-p))])
-     ["Show TODO Tree" org-show-todo-tree t]
-     ["Global TODO list" org-todo-list t]
+     ["Show TODO Tree" org-show-todo-tree :active t :keys "C-c / t"]
+     ["Global TODO list" org-todo-list :active t :keys "C-c a t"]
      "--"
      ["Enforce dependencies" (customize-variable 'org-enforce-todo-dependencies)
       :selected org-enforce-todo-dependencies :style toggle :active t]
@@ -17173,6 +17365,13 @@ With prefix arg UNCOMPILED, load the uncompiled versions."
 (defun org-in-commented-line ()
   "Is point in a line starting with `#'?"
   (equal (char-after (point-at-bol)) ?#))
+
+(defun org-in-indented-comment-line ()
+  "Is point in a line starting with `#' after some white space?"
+  (save-excursion
+    (save-match-data
+      (goto-char (point-at-bol))
+      (looking-at "[ \t]*#"))))
 
 (defun org-in-verbatim-emphasis ()
   (save-match-data
@@ -17700,7 +17899,7 @@ so values can contain further %-escapes if they are define later in TABLE."
         e re rpl)
     (while (setq e (pop tbl))
       (setq re (concat "%-?[0-9.]*" (substring (car e) 1)))
-      (when (string-match re (cdr e))
+      (when (and (cdr e) (string-match re (cdr e)))
         (let ((sref (substring (cdr e) (match-beginning 0) (match-end 0)))
               (safe "SREF"))
           (add-text-properties 0 3 (list 'sref sref) safe)
@@ -18289,6 +18488,13 @@ interactive command with similar behavior."
       (outline-back-to-heading invisible-ok)
     (error (error "Before first headline at position %d in buffer %s"
 		  (point) (current-buffer)))))
+
+(defun org-beginning-of-defun ()
+  "Go to the beginning of the subtree, i.e. back to the heading."
+  (org-back-to-heading))
+(defun org-end-of-defun ()
+  "Go to the end of the subtree."
+  (org-end-of-subtree nil t))
 
 (defun org-before-first-heading-p ()
   "Before first heading?"

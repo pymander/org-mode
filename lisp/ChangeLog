@@ -1,3 +1,172 @@
+2010-05-17  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-refile-use-cache): New option.
+	(org-refile-cache, org-refile-markers): New variable.
+	(org-refile-marker, org-refile-cache-clear)
+	(org-refile-cache-check-set, org-refile-cache-put)
+	(org-refile-cache-get): New function.
+	(org-get-refile-targets): Use the refile cache.
+
+	* org-clock.el (org-clock-sum): Don't include running clock if
+	the time block is wrong.
+
+2010-05-16  John Wiegley  <jwiegley@gmail.com>
+
+	* org-clock.el (org-clock-clock-in, org-clock-in): Added
+	parameter `start-time'.
+	(org-clock-resolve-clock): Added parameter `clock-out-time'.
+	If set, and resolve-to is a past time, then the clock out
+	event occurs at `clock-out-time' rather than at `resolve-to'.
+	In this case, `resolve-to' becomes the clock in time.
+	(org-clock-jump-to-current-clock): Created new global command
+	to reveal the current clock.
+	(org-clock-resolve): Added new commands g/G and j/J, and a
+	help window describing all commands and their meaning.
+	(org-clock-resolve-expert): New customization variable.
+	(org-find-open-clocks): Fixed a bug that caused discovered
+	clocks not to match up with the currently active clock.
+	(org-resolve-clocks): Changed the argument
+	`also-non-dangling-p' to `only-dangling-p', since due to a bug
+	this was the default behavior all along.
+
+2010-05-16  David Maus  <dmaus@ictsoc.de>
+
+	* org-id.el (org-id-uuid): New function.  Return string with
+	random (version 4) UUID.
+	(org-id-method): Make 'uuid the new default value.
+	(org-id-new): Use `org-id-uuid' if call to uuidgen program
+	does not return a UUID.
+
+2010-05-15  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-latex.el (org-export-latex-format-image): Add support
+	for multicolumn figures in LaTeX.
+
+2010-05-14  David Maus  <dmaus@ictsoc.de>
+
+	* org.el (org-clone-subtree-with-time-shift): Remove ID
+	property of original subtree in cloned subtrees.
+
+2010-05-14  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-exp.el (org-export-format-source-code-or-example):
+	XEmacs compatibility.
+
+	* org-latex.el (org-export-latex-tables): Accept comma in
+	align string.
+
+	* org-docbook.el (org-export-docbook-xslt-stylesheet): New option.
+	(org-export-docbook-xslt-proc-command): Fix docstring.
+	(org-export-docbook-xsl-fo-proc-command): Fix docstring.
+	(org-export-as-docbook-pdf): Improve
+	formatting of the xslt command.
+
+	* org-exp.el (org-infile-export-plist): Check for XSLT setting.
+
+	* org.el (org-file-contents): Improve error message.
+	(org-set-regexps-and-options): Remove spaces at both ends.
+
+2010-05-13  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org-docbook.el (org-export-as-docbook-pdf): Improve
+	formatting of the xslt command.
+
+2010-05-13  Sebastian Rose  <sebastian_rose@gmx.de>
+
+	* org-publish.el (org-publish-cache): Use one big hashmap for
+	each project defined in `org-publish-project-alist'. The
+	hashmap will hold pairs of our timestamp-filenames and
+	timestamps, as well as pairs of source-paths and associated
+	plists for arbitrary values. Currently only the files title is
+	stored there.
+
+	The caching feature writes the information gathered during
+	publishing to disk and re-loads it from there the next time we
+	publish the same project.  All this information will hence
+	survive a restart of emacs.
+
+	One cache file per publishing project is used.  The contents of
+	that file is the elisp that fills the new variable
+	`org-publish-cache'.  The cache file is named according to the
+	project with `.cache' added and lives in
+	`org-timestamp-directory'.
+
+	* org-publish.el (initialize-files-alist): This function and
+	the variable `org-publish-files-alist' are not used anymore in
+	favour of the reloadable cache and the functions for handling
+	it.  Removed.
+
+	* org-publish.el (org-publish-validate-link) was not used
+	anywhere.  Removed.
+
+	* org-publish.el (org-publish-get-base-files): Added the
+	variable `sitemap-requested' to avoid sorting where possible.
+	See also end of `org-publish-get-base-files-1'.
+
+	* org-publish.el (org-publish-get-files): This function is
+	not called anymore. Removed.
+
+	* org-publish.el (org-publish-get-project-from-filename): does
+	not depend on a list of files anymore. Instead of laoding all
+	files of all, we walk `org-publish-project-alist' until we
+	find a project, where the properties :base-directory, :recursive,
+	:base-extension, :include and :exclude match.
+
+	* org-publish.el (org-publish-file): takes an additional
+	parameter to avoid superfloues loading and writing of the
+	cache file when used to publish a part of a project.
+
+2010-05-13  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-beginning-of-defun, org-end-of-defun): New
+	functions.
+	(org-mode): Install the `org-beginning-of-defun' and
+	`org-end-of-defun' functions.
+	(org-pretty-entities): New option.
+	(org-toggle-pretty-entities): New command.
+	(org-fontify-entities): New function.
+	(org-startup-options): New keywords for pretty entities.
+	(org-set-font-lock-defaults): Call the pretty entities
+	function.
+
+	* org-latex.el (org-export-latex-keywords-maybe): Protect the
+	TODO markup.
+
+2010-05-13  Mikael Fornius  <mfo@abc.se>
+
+	* org-habit.el (org-habit-build-graph): Help-echo date when
+	mouse is over stars.
+
+2010-05-13  Jan Böker  <jan.boecker@jboecker.de>
+
+	* org.el (org-file-apps): Improve docstring to reflect
+	grouping matches
+
+2010-05-12  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-set-startup-visibility): Fix empty line display.
+
+	* org-latex.el (org-export-latex-links): Use the formatting
+	function of the link type, if it is available.
+
+	* org-table.el (org-table-get-remote-range): Return to
+	original buffer when retrieving remote reference.
+
+	* org.el (org-display-inline-images): Do the entire buffer,
+	not just the narrowed region.  Clear the cache.
+	(org-display-inline-images): Match mode file paths.
+
+2010-05-12  David Maus  <dmaus@ictsoc.de>
+
+	* org-wl.el (org-wl-store-link-folder): Don't throw error when
+	called on WL folder group.
+
+2010-05-10  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-replace-escapes): Make sure the cdr is not nil.
+	(org-read-date): Make `M-v' and `C-v' scroll the popup calendar.
+	(org-mode): Revert comment syntax changes.
+
 2010-05-09  Carsten Dominik  <carsten.dominik@gmail.com>
 
 	* org.el (org-sparse-tree): Make `C-c / t' search for all TODO
