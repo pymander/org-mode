@@ -27,9 +27,15 @@
 ;; This library implements an exporter to the Atom Syndication Format
 ;; (RFC 4287) for Org mode.
 
-(require 'atom-syndication)
 (require 'org-exp)
 (eval-when-compile (require 'cl))
+
+(declare-function atom-syndication-element-feed "ext:atom-syndication"
+		  (attr elements))
+(declare-function atom-syndication-sanitize "ext:atom-syndication"
+		  (text))
+
+(defvar atom-syndication-construct-text-html-function)
 
 (defconst org-atom-infile-options
   '(("ATOM_MAP_ENTRIES" :atom-map-entries)
@@ -97,6 +103,7 @@ feed as a string.
 When BODY-ONLY is set, return only the atom:entry elements.
 When PUB-DIR is set, use this as the publishing directory."
   (interactive)
+  (require 'atom-syndication)
   (run-hooks 'org-export-first-hook)
   (let* ((opt-plist (org-combine-plists (org-default-export-plist)
 					ext-plist
@@ -226,10 +233,12 @@ PROJECT and publishes them as one single atom feed."
 	 (include-files (plist-get project-plist :include))
 	 (files (append
 		 include-files
-		 (nreverse (org-publish-get-base-files project exclude-regexp))))
-	 (sitemap-filename (concat dir (or sitemap-filename
-					 (concat "feed."
-						 org-atom-feed-extension))))
+		 (nreverse
+		  (org-publish-get-base-files project exclude-regexp))))
+	 (sitemap-filename (concat dir
+				   (or (plist-get project-plist :sitemap-file)
+				       (concat "feed."
+					       org-atom-feed-extension))))
 	 (sitemap-title (or (plist-get project-plist :sitemap-title)
 			  (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
@@ -247,6 +256,7 @@ PROJECT and publishes them as one single atom feed."
       (erase-buffer)
       (insert (concat "<?xml version=\"1.0\"?>"
 		      (atom-syndication-element-feed
+		       nil
 		       (append
 			(list
 			 (list 'title nil sitemap-title)
@@ -361,7 +371,7 @@ tags as entry category terms."
 			  content (file-name-directory content-url)) 'html)))))
        (if href
 	   (list
-	    (list 'link nil href nil alternate))
+	    (list 'link nil href nil 'alternate))
 	 (if (and content-url (not (string= content-url "")))
 	     (list
 	      (list
