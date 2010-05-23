@@ -1,3 +1,4 @@
+
 \input texinfo
 @c %**start of header
 @setfilename ../../info/org
@@ -881,6 +882,9 @@ exposed by a sparse tree command (@pxref{Sparse trees}) or an agenda command
 (@pxref{Agenda commands}).  With a prefix argument show, on each
 level, all sibling headings.  With double prefix arg, also show the entire
 subtree of the parent.
+@kindex C-c C-k
+@item C-c C-k
+Expose all the headings of the subtree, CONTENT view for just one subtree.
 @kindex C-c C-x b
 @item C-c C-x b
 Show the current subtree in an indirect buffer@footnote{The indirect
@@ -1268,6 +1272,11 @@ put into @file{.emacs}: @code{(require 'filladapt)}}, and by exporting them
 properly (@pxref{Exporting}).  Since indentation is what governs the
 structure of these lists, many structural constructs like @code{#+BEGIN_...}
 blocks can be indented to signal that they should be part of a list item.
+
+@vindex org-list-demote-modify-bullet
+If you find that using a different bullet for a sub-list (than that used for
+the current list-level) improves readability, customize the variable
+@code{org-list-demote-modify-bullet}.
 
 The following commands act on items when the cursor is in the first line
 of an item (the line with the bullet or number).
@@ -4700,7 +4709,7 @@ optional.  The individual parts have the following meaning:
                 @{+@}       @r{Sum numbers in this column.}
                 @{+;%.1f@}  @r{Like @samp{+}, but format result with @samp{%.1f}.}
                 @{$@}       @r{Currency, short for @samp{+;%.2f}.}
-                @{:@}       @r{Sum times, HH:MM:SS, plain numbers are hours.}
+                @{:@}       @r{Sum times, HH:MM, plain numbers are hours.}
                 @{X@}       @r{Checkbox status, @samp{[X]} if all children are @samp{[X]}.}
                 @{X/@}      @r{Checkbox status, @samp{[n/m]}.}
                 @{X%@}      @r{Checkbox status, @samp{[n%]}.}
@@ -5603,6 +5612,7 @@ new table.  The @samp{BEGIN} line can specify options:
 :tend        @r{A time string specifying when to stop considering times.}
 :step        @r{@code{week} or @code{day}, to split the table into chunks.}
              @r{To use this, @code{:block} or @code{:tstart}, @code{:tend} are needed.}
+:stepskip0   @r{Don't show steps that have zero time}
 :tags        @r{A tags match to select entries that should contribute}
 :link        @r{Link the item headlines in the table to their origins.}
 :formula     @r{Content of a @code{#+TBLFM} line to be added and evaluated.}

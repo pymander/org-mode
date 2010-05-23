@@ -1,3 +1,44 @@
+2010-05-21  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-emph-re): Document the match groups.
+
+2010-05-20  Bernt Hansen <bernt@norang.ca>
+
+	* org-clock.el (org-clock-in): Set `org-clock-clocking-in' to
+	t before calling `org-clock-out', so that that function can
+	know its call context.
+
+2010-05-20  Bastien Guerry  <bzg@altern.org>
+
+	* org-timer.el (org-timer-default-timer): New variable.
+	(org-timer-set-timer): Use the new variable.  Also offer the
+	possibility to replace the current timer by a new one.
+
+2010-05-20  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-kill-note-or-show-branches): Hide subtree before
+	exposing the headings.
+
+2010-05-19  Carsten Dominik  <carsten.dominik@gmail.com>
+
+	* org.el (org-add-planning-info): Remove the empty line also
+	if there is no whitespace at all in there.
+
+	* org-table.el (org-table-align): Fix alignment of strings
+	with invisible characters.
+
+2010-05-19  David Maus  <dmaus@ictsoc.de>
+
+	* org.el (org-refile-cache-get): Return empty list of targets
+	when cache was cleared.
+	(org-clone-subtree-with-time-shift): Maybe create ID property
+	in cloned subtrees.
+	(org-clone-delete-id): New customization variable.
+	(org-clone-subtree-with-time-shift): Use customization
+	variable `org-clone-delete-id'.
+	(org-clone-subtree-with-time-shift): Remove empty property
+	drawer in cloned subtrees.
+
 2010-05-17  Carsten Dominik  <carsten.dominik@gmail.com>
 
 	* org.el (org-refile-use-cache): New option.

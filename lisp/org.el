@@ -105,6 +105,13 @@
 (require 'org-footnote)
 
 ;;;; Customization variables
+(defcustom org-clone-delete-id nil
+  "Remove ID property of clones of a subtree.
+When non-nil, clones of a subtree don't inherit the ID property.
+Otherwise they inherit the ID property with a new unique
+identifier."
+  :type 'boolean
+  :group 'org-id)
 
 ;;; Version
 
@@ -240,6 +247,7 @@ to add the symbol `xyz', and the package must have a call to
 	(const :tag "C  learn:             SuperMemo's incremental learning algorithm" org-learn)
 	(const :tag "C  mairix:            Hook mairix search into Org-mode for different MUAs" org-mairix)
 	(const :tag "C  mac-iCal           Imports events from iCal.app to the Emacs diary" org-mac-iCal)
+	(const :tag "C  mac-link-grabber   Grab links and URLs from various Mac applications" org-mac-link-grabber)
 	(const :tag "C  man:               Support for links to manpages in Org-mode" org-man)
 	(const :tag "C  mtags:             Support for muse-like tags" org-mtags)
 	(const :tag "C  panel:             Simple routines for us with bad memory" org-panel)
@@ -3169,7 +3177,13 @@ When nil, the \\name form remains in the buffer."
   :type 'boolean)
 
 (defvar org-emph-re nil
-  "Regular expression for matching emphasis.")
+  "Regular expression for matching emphasis.
+After a match, the match groups contain these elements:
+1  The character before the proper match, or empty at beginning of line
+2  The proper match, including the leading and trailing markers
+3  The leading marker like * or /, indicating the type of highlighting
+4  The text between the emphasis markers, not including the markers
+5  The character after the match, empty at the end of a line")
 (defvar org-verbatim-re nil
   "Regular expression for matching verbatim text.")
 (defvar org-emphasis-regexp-components) ; defined just below
@@ -7144,6 +7158,9 @@ If yes, remember the marker and the distance to BEG."
 	      (if (org-on-heading-p) (backward-char 1))
 	      (point))))))
 
+(eval-when-compile
+  (defvar org-property-drawer-re))
+
 (defun org-clone-subtree-with-time-shift (n &optional shift)
   "Clone the task (subtree) at point N times.
 The clones will be inserted as siblings.
@@ -7170,7 +7187,7 @@ the following will happen:
 I this way you can spell out a number of instances of a repeating task,
 and still retain the repeater to cover future instances of the task."
   (interactive "nNumber of clones to produce: \nsDate shift per clone (e.g. +1w, empty to copy unchanged): ")
-  (let (beg end template task
+  (let (beg end template task idprop
 	    shift-n shift-what doshift nmin nmax (n-no-remove -1))
     (if (not (and (integerp n) (> n 0)))
 	(error "Invalid number of replications %s" n))
@@ -7187,15 +7204,11 @@ and still retain the repeater to cover future instances of the task."
     (setq nmin 1 nmax n)
     (org-back-to-heading t)
     (setq beg (point))
+    (setq idprop (org-entry-get nil "ID"))
     (org-end-of-subtree t t)
     (or (bolp) (insert "\n"))
     (setq end (point))
-    (setq template (let ((tmpl (buffer-substring beg end)))
-		     (with-temp-buffer
-		       (insert tmpl)
-		       (org-mode)
-		       (org-entry-delete nil "ID")
-		       (buffer-string))))
+    (setq template (buffer-substring beg end))
     (when (and doshift
 	       (string-match "<[^<>\n]+ \\+[0-9]+[dwmy][^<>\n]*>" template))
       (delete-region beg end)
@@ -7204,10 +7217,28 @@ and still retain the repeater to cover future instances of the task."
     (goto-char end)
     (loop for n from nmin to nmax do
 	  (if (not doshift)
-	      (setq task template)
+	      (setq task (if (not idprop) template
+			   (with-temp-buffer
+			     (insert template)
+			     (org-mode)
+			     (goto-char (point-min))
+			     (if org-clone-delete-id
+				 (org-entry-delete nil "ID")
+			       (org-id-get-create t))
+			     (while (re-search-forward
+				     org-property-drawer-re nil t)
+			       (org-remove-empty-drawer-at
+				"PROPERTIES" (point)))
+			     (buffer-string))))
 	    (with-temp-buffer
 	      (insert template)
 	      (org-mode)
+	      (goto-char (point-min))
+	      (and idprop (if org-clone-delete-id
+			      (org-entry-delete nil "ID")
+			    (org-id-get-create t)))
+	      (while (re-search-forward org-property-drawer-re nil t)
+		(org-remove-empty-drawer-at "PROPERTIES" (point)))
 	      (goto-char (point-min))
 	      (while (re-search-forward org-ts-regexp-both nil t)
 		(org-timestamp-change (* n shift-n) shift-what))
@@ -9526,7 +9557,7 @@ on the system \"/user@host:\"."
   "Retrieve the cached value for refile targets given by IDENTIFIERS."
   (cond
    ((not org-refile-cache) nil)
-   ((not org-refile-use-cache) (org-refile-cache-clear))
+   ((not org-refile-use-cache) (org-refile-cache-clear) nil)
    (t
     (let ((set (cdr (assoc (sha1 (prin1-to-string identifiers))
 			   org-refile-cache))))
@@ -11360,7 +11391,7 @@ be removed."
 	      (end-of-line 1))
 	    (goto-char (point-min))
 	    (widen)
-	    (if (and (looking-at "[ \t]+\n")
+	    (if (and (looking-at "[ \t]*\n")
 		     (equal (char-before) ?\n))
 		(delete-region (1- (point)) (point-at-eol)))
 	    ts))))))
@@ -16742,7 +16773,9 @@ Also updates the keyword regular expressions."
   "If this is a Note buffer, abort storing the note.  Else call `show-branches'."
   (interactive)
   (if (not org-finish-function)
-      (call-interactively 'show-branches)
+      (progn
+	(hide-subtree)
+	(call-interactively 'show-branches))
     (let ((org-note-abort t))
       (funcall org-finish-function))))
 
