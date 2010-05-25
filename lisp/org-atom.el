@@ -351,7 +351,7 @@ tags as entry category terms."
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
 			published))
 	   (author (or (org-entry-get nil "atom_author")))
-	   (href (org-entry-get nil "atom_href")))
+	   (href_alternate (org-entry-get nil "atom_href_alternate")))
       (append
        (if published
 	   (list
@@ -369,9 +369,9 @@ tags as entry category terms."
 	     (list (list 'content nil
 			 (org-atom-htmlize
 			  content (file-name-directory content-url)) 'html)))))
-       (if href
+       (if href_alternate
 	   (list
-	    (list 'link nil href nil 'alternate))
+	    (list 'link nil href_alternate nil 'alternate))
 	 (if (and content-url (not (string= content-url "")))
 	     (list
 	      (list
