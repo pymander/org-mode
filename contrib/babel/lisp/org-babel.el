@@ -1026,8 +1026,7 @@ directory then expand relative links."
 (defun org-babel-examplize-region (beg end &optional results-switches)
   "Comment out region using the ': ' org example quote."
   (interactive "*r")
-  (let ((size (abs (- (line-number-at-pos end)
-		      (line-number-at-pos beg)))))
+  (let ((size (count-lines beg end)))
     (save-excursion
       (cond ((= size 0)
 	     (error (concat "This should be impossible:"
@@ -1413,7 +1412,8 @@ specifies the value of ERROR-BUFFER."
 	 (if error-buffer
 	     (make-temp-file
 	      (expand-file-name "scor"
-				(or small-temporary-file-directory
+				(or (unless (featurep 'xemacs)
+				      small-temporary-file-directory)
 				    temporary-file-directory)))
 	   nil))
 	exit-status)
