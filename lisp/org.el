@@ -5977,6 +5977,7 @@ This means that the buffer may change while running BODY,
 but it also means that the buffer should stay alive
 during the operation, because otherwise all these markers will
 point nowhere."
+  (declare (indent 1))
   `(let ((data (org-outline-overlay-data ,use-markers)))
      (unwind-protect
 	 (progn
@@ -7216,30 +7217,18 @@ and still retain the repeater to cover future instances of the task."
       (setq nmin 0 nmax (1+ nmax) n-no-remove nmax))
     (goto-char end)
     (loop for n from nmin to nmax do
-	  (if (not doshift)
-	      (setq task (if (not idprop) template
-			   (with-temp-buffer
-			     (insert template)
-			     (org-mode)
-			     (goto-char (point-min))
-			     (if org-clone-delete-id
-				 (org-entry-delete nil "ID")
-			       (org-id-get-create t))
-			     (while (re-search-forward
-				     org-property-drawer-re nil t)
-			       (org-remove-empty-drawer-at
-				"PROPERTIES" (point)))
-			     (buffer-string))))
-	    (with-temp-buffer
-	      (insert template)
-	      (org-mode)
-	      (goto-char (point-min))
-	      (and idprop (if org-clone-delete-id
-			      (org-entry-delete nil "ID")
-			    (org-id-get-create t)))
-	      (while (re-search-forward org-property-drawer-re nil t)
-		(org-remove-empty-drawer-at "PROPERTIES" (point)))
-	      (goto-char (point-min))
+	  ;; prepare clone
+	  (with-temp-buffer
+	    (insert template)
+	    (org-mode)
+	    (goto-char (point-min))
+	    (and idprop (if org-clone-delete-id
+			    (org-entry-delete nil "ID")
+			  (org-id-get-create t)))
+	    (while (re-search-forward org-property-drawer-re nil t)
+	      (org-remove-empty-drawer-at "PROPERTIES" (point)))
+	    (goto-char (point-min))
+	    (when doshift
 	      (while (re-search-forward org-ts-regexp-both nil t)
 		(org-timestamp-change (* n shift-n) shift-what))
 	      (unless (= n n-no-remove)
@@ -7248,8 +7237,8 @@ and still retain the repeater to cover future instances of the task."
 		  (save-excursion
 		    (goto-char (match-beginning 0))
 		    (if (looking-at "<[^<>\n]+\\( +\\+[0-9]+[dwmy]\\)")
-			(delete-region (match-beginning 1) (match-end 1))))))
-	      (setq task (buffer-string))))
+			(delete-region (match-beginning 1) (match-end 1)))))))
+	    (setq task (buffer-string)))
 	  (insert task))
     (goto-char beg)))
 
@@ -7973,7 +7962,9 @@ For file links, arg negates `org-context-in-file-links'."
 		   (get-text-property (point) 'org-marker))))
 	(when m
 	  (org-with-point-at m
-	    (call-interactively 'org-store-link)))))
+	    (if (interactive-p)
+		(call-interactively 'org-store-link)
+	      (org-store-link nil))))))
 
      ((eq major-mode 'calendar-mode)
       (let ((cd (calendar-cursor-to-date)))
@@ -8284,6 +8275,12 @@ This is the list that is used before handing over to the browser.")
 
 (defun org-fixup-message-id-for-http (s)
   "Replace special characters in a message id, so it can be used in an http query."
+  (when (string-match "%" s)
+    (setq s (mapconcat (lambda (c)
+			 (if (eq c ?%)
+			     "%25"
+			   (char-to-string c)))
+		       s "")))
   (while (string-match "<" s)
     (setq s (replace-match "%3C" t t s)))
   (while (string-match ">" s)
@@ -9537,13 +9534,14 @@ on the system \"/user@host:\"."
 
 (defun org-refile-cache-check-set (set)
   "Check if all the markers in the cache still have live buffers."
-  (catch 'exit
-    (while set
-      (if (not (marker-buffer (nth 3 (pop set))))
-	  (progn
-	    (message "not found") (sit-for 3)
-	    (throw 'exit nil))))
-    t))
+  (let (marker)
+    (catch 'exit
+      (while (and set (setq marker (nth 3 (pop set))))
+	;; if org-refile-use-outline-path is 'file, marker may be nil
+	(when (and marker (null (marker-buffer marker)))
+	  (message "not found") (sit-for 3)
+	  (throw 'exit nil)))
+      t)))
 
 (defun org-refile-cache-put (set &rest identifiers)
   "Push the refile targets SET into the cache, under IDENTIFIERS."
@@ -9661,7 +9659,8 @@ on the system \"/user@host:\"."
 		     (when (= (point) pos0)
 		       ;; verification function has not moved point
 		       (goto-char (point-at-eol))))))))
-	    (org-refile-cache-put tgs (buffer-file-name) descre)
+	    (when org-refile-use-cache
+	      (org-refile-cache-put tgs (buffer-file-name) descre))
 	    (setq targets (append tgs targets))
 	    ))))
     (message "Getting targets...done")
@@ -11692,7 +11691,7 @@ that the match should indeed be shown."
     cnt))
 
 (defun org-show-context (&optional key)
-  "Make sure point and context and visible.
+  "Make sure point and context are visible.
 How much context is shown depends upon the variables
 `org-show-hierarchy-above', `org-show-following-heading'. and
 `org-show-siblings'."
@@ -15042,6 +15041,13 @@ used by the agenda files.  If ARCHIVE is `ifmode', do this only if
       (setq files (org-add-archive-files files)))
     files))
 
+(defun org-agenda-file-p (&optional file)
+  "Return non-nil, if FILE is an agenda file.
+If FILE is omitted, use the file associated with the current
+buffer."
+  (member (or file (buffer-file-name))
+          (org-agenda-files t)))
+
 (defun org-edit-agenda-file-list ()
   "Edit the list of agenda files.
 Depending on setup, this either uses customize to edit the variable
@@ -17184,7 +17190,7 @@ See the individual commands for more information."
       :style toggle :selected (and (boundp 'org-export-with-LaTeX-fragments)
 				   org-export-with-LaTeX-fragments)]
      "--"
-     ["Template for BEAMER" org-beamer-settings-template t])
+     ["Template for BEAMER" org-insert-beamer-options-template t])
     "--"
     ("MobileOrg"
      ["Push Files and Views" org-mobile-push t]
