@@ -38,10 +38,10 @@
 (defvar atom-syndication-construct-text-html-function)
 
 (defconst org-atom-infile-options
-  '(("ATOM_MAP_ENTRIES" :atom-map-entries)
-    ("ATOM_ID" :atom-id)
-    ("ATOM_URL" :atom-url)
-    ("ATOM_CONTENT_URL" :atom-content-url)))
+  '(("FEED_MAP_ENTRIES" :feed-map-entries)
+    ("FEEd_ID" :feed-id)
+    ("FEED_URL" :feed-url)
+    ("FEED_CONTENT_URL" :feed-content-url)))
 
 (defconst org-atom-generator-name "Org/Atom"
   "Name of the atom generator.")
@@ -108,17 +108,17 @@ When PUB-DIR is set, use this as the publishing directory."
   (let* ((opt-plist (org-combine-plists (org-default-export-plist)
 					ext-plist
 					(org-infile-export-plist)))
-	 (atom-url (org-trim (or (plist-get opt-plist :atom-url) "")))
-	 (atom-content-url (org-trim (or (plist-get opt-plist :atom-content-url)
+	 (atom-url (org-trim (or (plist-get opt-plist :feed-url) "")))
+	 (atom-content-url (org-trim (or (plist-get opt-plist :feed-content-url)
 					 "")))
-	 (atom-id (org-trim (plist-get opt-plist :atom-id)))
-	 (atom-map-entries (org-trim (or (plist-get opt-plist :atom-map-entries)
+	 (atom-id (org-trim (plist-get opt-plist :feed-id)))
+	 (atom-map-entries (org-trim (or (plist-get opt-plist :feed-map-entries)
 					 "")))
 	 (author (plist-get opt-plist :author))
 	 (email (plist-get opt-plist :email))
-	 (description (or (plist-get opt-plist :atom-description)
+	 (description (or (plist-get opt-plist :feed-description)
 			  (plist-get opt-plist :description)))
-	 (atom-title (or (plist-get opt-plist :atom-title)
+	 (atom-title (or (plist-get opt-plist :feed-title)
 			 (plist-get opt-plist :title)))
 	 (atom-file (if (buffer-file-name)
 			(concat
@@ -128,10 +128,10 @@ When PUB-DIR is set, use this as the publishing directory."
 			  (file-name-nondirectory
 			   (buffer-file-name)))
 			 "." org-atom-feed-extension)))
-	 (atom-publish-content (or (plist-get opt-plist :atom-publish-content)
+	 (atom-publish-content (or (plist-get opt-plist :feed-publish-content)
 				   org-atom-publish-content))
 	 (atom-publish-tags (or
-			     (plist-get opt-plist :atom-publish-category-tags)
+			     (plist-get opt-plist :feed-publish-category-tags)
 			     org-atom-publish-category-tags))
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
@@ -244,13 +244,13 @@ PROJECT and publishes them as one single atom feed."
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
 			   sitemap-filename))
-	 (atom-id (plist-get project-plist :atom-id))
+	 (atom-id (plist-get project-plist :feed-id))
 	 (visiting (find-buffer-visiting sitemap-filename))
 	 file sitemap-buffer)
     ;; maybe adjust publication url
     (unless (and pub-url (string-match-p "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
-    (setq project-plist (plist-put project-plist :atom-title sitemap-title))
+    (setq project-plist (plist-put project-plist :feed-title sitemap-title))
     (with-current-buffer (setq sitemap-buffer
 			       (or visiting (find-file sitemap-filename)))
       (erase-buffer)
@@ -271,7 +271,7 @@ PROJECT and publishes them as one single atom feed."
 	      (while (setq file (pop files))
 		(let* ((entries-plist (org-combine-plists
 				       project-plist
-				       (plist-put nil :atom-content-url
+				       (plist-put nil :feed-content-url
 						  (concat
 						   pub-url
 						   (file-relative-name
@@ -279,7 +279,7 @@ PROJECT and publishes them as one single atom feed."
 						   (or
 						    (plist-get
 						     project-plist
-						     :atom-content-extension)
+						     :feed-content-extension)
 						    ".html")))))
 		       (visiting-file (find-buffer-visiting file))
 		       entries)
@@ -317,12 +317,12 @@ PUB-DIR is the publishing directory."
        (org-combine-plists plist
 			   (if pub-url-fse
 			       (list
-				:atom-url
+				:feed-url
 				(concat pub-url-fse "." org-atom-feed-extension)
-				:atom-content-url
+				:feed-content-url
 				(concat pub-url-fse
 					(or (plist-get
-					     plist :atom-content-extension)
+					     plist :feed-content-extension)
 					    ".html"))))) nil nil pub-dir)
       (unless visiting
 	(kill-buffer)))))
