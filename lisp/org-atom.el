@@ -418,7 +418,6 @@ If POM is ommited, prepare headline at point."
   "Return date when headline at point was last modified.
 
 Return nil if calling git blame on current file failes."
-  (interactive)
   (let* ((comps (org-heading-components))
 	 (file (buffer-file-name))
 	 (re
