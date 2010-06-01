@@ -39,7 +39,7 @@
 
 (defconst org-atom-infile-options
   '(("FEED_MAP_ENTRIES" :feed-map-entries)
-    ("FEEd_ID" :feed-id)
+    ("FEED_ID" :feed-id)
     ("FEED_URL" :feed-url)
     ("FEED_CONTENT_URL" :feed-content-url)
     ("FEED_TITLE" :feed-title)
