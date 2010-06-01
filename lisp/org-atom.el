@@ -41,7 +41,9 @@
   '(("FEED_MAP_ENTRIES" :feed-map-entries)
     ("FEEd_ID" :feed-id)
     ("FEED_URL" :feed-url)
-    ("FEED_CONTENT_URL" :feed-content-url)))
+    ("FEED_CONTENT_URL" :feed-content-url)
+    ("FEED_TITLE" :feed-title)
+    ("FEED_DESCRIPTION" :feed-description)))
 
 (defconst org-atom-generator-name "Org/Atom"
   "Name of the atom generator.")
@@ -240,7 +242,8 @@ PROJECT and publishes them as one single atom feed."
 				       (concat "feed."
 					       org-atom-feed-extension))))
 	 (sitemap-title (or (plist-get project-plist :sitemap-title)
-			  (concat "Index for project " (car project))))
+			    (plist-get project-plist :feed-title)
+			    (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
 			   sitemap-filename))
@@ -250,7 +253,9 @@ PROJECT and publishes them as one single atom feed."
     ;; maybe adjust publication url
     (unless (and pub-url (string-match-p "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
-    (setq project-plist (plist-put project-plist :feed-title sitemap-title))
+    (setq project-plist (plist-put project-plist :feed-title sitemap-title)
+	  project-plist (plist-put
+			 project-plist :feed-description sitemap-description))
     (with-current-buffer (setq sitemap-buffer
 			       (or visiting (find-file sitemap-filename)))
       (erase-buffer)
@@ -275,7 +280,8 @@ PROJECT and publishes them as one single atom feed."
 						  (concat
 						   pub-url
 						   (file-relative-name
-						    (file-name-sans-extension file) dir)
+						    (file-name-sans-extension
+						     file) dir)
 						   (or
 						    (plist-get
 						     project-plist
