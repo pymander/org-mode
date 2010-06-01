@@ -356,7 +356,7 @@ tags as entry category terms."
 	   (published (org-entry-get nil org-atom-published-property-name))
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
 			published))
-	   (author (or (org-entry-get nil "atom_author")))
+	   (author (org-entry-get-multivalued-property nil "atom_author"))
 	   (href_alternate (org-entry-get nil "atom_href_alternate"))
 	   (href_via (org-entry-get nil "atom_href_via"))
 	   (href_related
@@ -366,7 +366,9 @@ tags as entry category terms."
 	   (list
 	    (list 'published nil (org-time-string-to-time published))))
        (if author
-	   (list (list 'author nil author)))
+	   (mapcar '(lambda (a)
+		      (list 'author nil a))
+		   author))
        (when publish-content
 	 (let (beg end content)
 	   (save-excursion
