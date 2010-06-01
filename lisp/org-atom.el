@@ -83,7 +83,7 @@ If unset only publish link to content."
   :type 'boolean
   :group 'org-export-atom)
 
-(defcustom org-atom-publish-category-tags t
+(defcustom org-atom-publish-category-tags nil
   "When non-nil, publish headline tags as category element."
   :type 'boolean
   :group 'org-export-atom)
