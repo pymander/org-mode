@@ -358,7 +358,9 @@ tags as entry category terms."
 			published))
 	   (author (or (org-entry-get nil "atom_author")))
 	   (href_alternate (org-entry-get nil "atom_href_alternate"))
-	   (href_via (org-entry-get nil "atom_href_via")))
+	   (href_via (org-entry-get nil "atom_href_via"))
+	   (href_related
+	    (org-entry-get-multivalued-property nil "atom_href_related")))
       (append
        (if published
 	   (list
@@ -386,6 +388,10 @@ tags as entry category terms."
        (if href_via
 	   (list
 	    (list 'link nil href_via nil 'via)))
+       (if href_related
+	   (mapcar '(lambda (url)
+		      (list 'link nil url nil 'related))
+		   href_related))
        (if (and publish-tags tags)
 	   (mapcar '(lambda (tag)
 		      (list 'category nil tag))
