@@ -43,13 +43,24 @@
     ("FEED_URL" :feed-url)
     ("FEED_CONTENT_URL" :feed-content-url)
     ("FEED_TITLE" :feed-title)
-    ("FEED_DESCRIPTION" :feed-description)))
+    ("FEED_DESCRIPTION" :feed-description)
+    ("FEED_OPTIONS" :feed-options)))
 
 (defconst org-atom-generator-name "Org/Atom"
   "Name of the atom generator.")
 
 (defconst org-atom-generator-version "0.1beta"
   "Version string of the atom generator.")
+
+(defconst org-atom-export-plist-vars
+  '((:feed-publish-content "content" org-atom-publish-content)
+    (:feed-content-extension "ext" org-export-html-extension))
+  "List of properties that represent export/publishing variables.
+Each element is a list of 3 items:
+1. The property that is used internally, and also for org-publish-project-alist
+2. The string that can be used in the OPTION lines to set this option,
+   or nil if this option cannot be changed in this way
+3. The customization variable that sets the default for this option.")
 
 (defgroup org-export-atom nil
   "Options specific for Atom export of Org-mode files."
@@ -118,14 +129,13 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (atom-title (or (plist-get opt-plist :feed-title)
 			 (plist-get opt-plist :title)))
 	 (atom-file (file-name-nondirectory atom-url))
-	 (atom-publish-content (or (plist-get opt-plist :feed-publish-content)
-				   org-atom-publish-content))
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
+	 (atom-options (plist-get opt-plist :feed-options))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'identity)
-	 entries feed filebuf)
-    ;; prepare headlines
+	 atom-content-url entries feed filebuf)
+    ;; prepare headlines and skip entire file when no matches
     (when (and (not (string= atom-map-entries ""))
 	       (> (length
 		   (org-map-entries
@@ -133,15 +143,27 @@ When PUB-DIR is set, use this as the publishing directory."
       ;; check mandatory options
       (when (and (not body-only) (string= atom-url ""))
 	(error "Missing url for feed"))
-      ;; atom entry w/o content MUST have link pointing to the content
-      (when (and (not atom-publish-content) (string= atom-content-url ""))
-	(error "Missing url for feed content"))
       (unless to-buffer
 	(setq to-buffer (if atom-file
 			    (or (find-buffer-visiting atom-file)
 				(find-file-noselect atom-file))
 			  (error "Need a file name to be able to export")))
 	(with-current-buffer to-buffer (erase-buffer)))
+      ;; process #+FEED_OPTIONS line
+      (when atom-options
+	(let ((org-export-plist-vars org-atom-export-plist-vars))
+	  (setq opt-plist
+		(org-export-add-options-to-plist opt-plist atom-options))))
+      (setq atom-content-url (or (plist-get opt-plist :feed-content-url)
+				 (format "%s%s.%s"
+				  (file-name-directory atom-url)
+				  (file-name-sans-extension
+				   (file-name-nondirectory
+				    (buffer-file-name)))
+				  (or
+				   (plist-get
+				    opt-plist :feed-content-extension)
+				   org-export-html-extension))))
       ;; maybe save modified headlines
       (save-buffer)
       (setq filebuf (buffer-string))
@@ -161,8 +183,8 @@ When PUB-DIR is set, use this as the publishing directory."
 				    (concat atom-url ",")
 				    atom-content-url
 				    nil
-				    atom-publish-content
-				    atom-publish-tags)))
+				    (plist-get
+				     opt-plist :feed-publish-content))))
 			       atom-map-entries))
 	;; maybe add author
 	(when body-only
@@ -241,7 +263,7 @@ PROJECT and publishes them as one single atom feed."
     (with-current-buffer (setq sitemap-buffer
 			       (or visiting (find-file sitemap-filename)))
       (erase-buffer)
-      (insert (concat "<?xml version=\"1.0\"?>"
+      (insert (concat "<?xml version=\"1.0\"?>\n"
 		      (atom-syndication-element-feed
 		       nil
 		       (append
