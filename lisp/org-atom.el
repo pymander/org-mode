@@ -117,8 +117,6 @@ When PUB-DIR is set, use this as the publishing directory."
 					ext-plist
 					(org-infile-export-plist)))
 	 (atom-url (org-trim (or (plist-get opt-plist :feed-url) "")))
-	 (atom-content-url (org-trim (or (plist-get opt-plist :feed-content-url)
-					 "")))
 	 (atom-id (org-trim (plist-get opt-plist :feed-id)))
 	 (atom-map-entries (org-trim (or (plist-get opt-plist :feed-map-entries)
 					 "")))
