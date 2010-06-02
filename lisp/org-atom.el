@@ -222,10 +222,7 @@ PROJECT and publishes them as one single atom feed."
 		 include-files
 		 (nreverse
 		  (org-publish-get-base-files project exclude-regexp))))
-	 (sitemap-filename (concat dir
-				   (or (plist-get project-plist :sitemap-file)
-				       (concat "feed."
-					       org-atom-feed-extension))))
+	 (sitemap-filename (concat dir (plist-get project-plist :sitemap-file)))
 	 (sitemap-title (or (plist-get project-plist :sitemap-title)
 			    (plist-get project-plist :feed-title)
 			    (concat "Index for project " (car project))))
