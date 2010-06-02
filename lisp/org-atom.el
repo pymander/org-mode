@@ -83,11 +83,6 @@ If unset only publish link to content."
   :type 'boolean
   :group 'org-export-atom)
 
-(defcustom org-atom-publish-category-tags nil
-  "When non-nil, publish headline tags as category element."
-  :type 'boolean
-  :group 'org-export-atom)
-
 (defcustom org-atom-try-prepare-headline-git nil
   "When non-nil, try to get headline creating date with git.")
 
@@ -132,9 +127,6 @@ When PUB-DIR is set, use this as the publishing directory."
 			 "." org-atom-feed-extension)))
 	 (atom-publish-content (or (plist-get opt-plist :feed-publish-content)
 				   org-atom-publish-content))
-	 (atom-publish-tags (or
-			     (plist-get opt-plist :feed-publish-category-tags)
-			     org-atom-publish-category-tags))
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
@@ -334,8 +326,7 @@ PUB-DIR is the publishing directory."
 	(kill-buffer)))))
 
 (defun org-atom-export-headline (id-prefix content-url &optional
-					   pom publish-content
-					   publish-tags)
+					   pom publish-content)
   "Return atom:entry alist for headline.
 
 ID-PREFIX is a string that is used as prefix for the atom:id
@@ -344,14 +335,11 @@ CONTENT-URL is a url pointing on the published html file.
 Optional argument POM is point or marker of headline.  If not
 set, export headline at point.
 If optional argument PUBLISH-CONTENT is non-nil, publish subtree
-of headline as feed entry content.
-If optional argument PUBLISH-TAGS is non-nil, publish headline
-tags as entry category terms."
+of headline as feed entry content."
   (save-excursion
     (goto-char (or pom (point)))
     (let* ((comps (org-heading-components))
 	   (title (nth 4 comps))
-	   (tags (and (nth 5 comps) (substring (nth 5 comps) 1 -1)))
 	   (id (org-id-get))
 	   (published (org-entry-get nil org-atom-published-property-name))
 	   (updated (or (org-entry-get nil org-atom-updated-property-name)
@@ -394,10 +382,6 @@ tags as entry category terms."
 	   (mapcar '(lambda (url)
 		      (list 'link nil url nil 'related))
 		   href_related))
-       (if (and publish-tags tags)
-	   (mapcar '(lambda (tag)
-		      (list 'category nil tag))
-		   (split-string tags ":")))
        (list
 	(list 'title
 	      (list
