@@ -117,7 +117,7 @@ When PUB-DIR is set, use this as the publishing directory."
 					ext-plist
 					(org-infile-export-plist)))
 	 (atom-url (org-trim (or (plist-get opt-plist :feed-url) "")))
-	 (atom-id (org-trim (plist-get opt-plist :feed-id)))
+	 (atom-id (org-trim (or (plist-get opt-plist :feed-id) "")))
 	 (atom-map-entries (org-trim (or (plist-get opt-plist :feed-map-entries)
 					 "")))
 	 (author (plist-get opt-plist :author))
@@ -139,6 +139,8 @@ When PUB-DIR is set, use this as the publishing directory."
 		   (org-map-entries
 		    'org-atom-prepare-headline atom-map-entries)) 0))
       ;; check mandatory options
+      (when (string= atom-id "")
+	(error "Missing ID for feed"))
       (when (and (not body-only) (string= atom-url ""))
 	(error "Missing url for feed"))
       (unless to-buffer
