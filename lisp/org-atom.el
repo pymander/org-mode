@@ -227,13 +227,13 @@ PROJECT and publishes them as one single atom feed."
 			    (plist-get project-plist :feed-title)
 			    (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
-	 (atom-url (concat pub-url (if (string-match-p "/$" pub-url) "" "/")
+	 (atom-url (concat pub-url (if (string-match "/$" pub-url) "" "/")
 			   sitemap-filename))
 	 (atom-id (plist-get project-plist :feed-id))
 	 (visiting (find-buffer-visiting sitemap-filename))
 	 file sitemap-buffer)
     ;; maybe adjust publication url
-    (unless (and pub-url (string-match-p "/$" pub-url))
+    (unless (and pub-url (string-match "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
     (setq project-plist (plist-put project-plist :feed-title sitemap-title)
 	  project-plist (plist-put
@@ -294,7 +294,7 @@ PUB-DIR is the publishing directory."
 	 (pub-url-fse (and pub-url-base
 			   (concat
 			    pub-url-base
-			    (if (string-match-p "/$" pub-url-base) "" "/")
+			    (if (string-match "/$" pub-url-base) "" "/")
 			    (file-relative-name
 			     (file-name-sans-extension
 			      filename) (plist-get plist :base-directory))))))
