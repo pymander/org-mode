@@ -228,7 +228,7 @@ PROJECT and publishes them as one single atom feed."
 			    (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match "/$" pub-url) "" "/")
-			   sitemap-filename))
+			   (file-relative-name sitemap-filename dir)))
 	 (atom-id (plist-get project-plist :feed-id))
 	 (visiting (find-buffer-visiting sitemap-filename))
 	 file sitemap-buffer)
