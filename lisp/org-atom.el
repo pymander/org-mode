@@ -117,14 +117,7 @@ When PUB-DIR is set, use this as the publishing directory."
 			  (plist-get opt-plist :description)))
 	 (atom-title (or (plist-get opt-plist :feed-title)
 			 (plist-get opt-plist :title)))
-	 (atom-file (if (buffer-file-name)
-			(concat
-			 (if pub-dir pub-dir (file-name-directory
-					      (buffer-file-name)))
-			 (file-name-sans-extension
-			  (file-name-nondirectory
-			   (buffer-file-name)))
-			 "." org-atom-feed-extension)))
+	 (atom-file (file-name-nondirectory atom-url))
 	 (atom-publish-content (or (plist-get opt-plist :feed-publish-content)
 				   org-atom-publish-content))
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
