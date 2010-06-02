@@ -54,7 +54,8 @@
 
 (defconst org-atom-export-plist-vars
   '((:feed-publish-content "content" org-atom-publish-content)
-    (:feed-content-extension "ext" org-export-html-extension))
+    (:feed-content-extension "ext" org-export-html-extension)
+    (:feed-prepare-try-git "git" org-atom-try-prepare-headline-git))
   "List of properties that represent export/publishing variables.
 Each element is a list of 3 items:
 1. The property that is used internally, and also for org-publish-project-alist
@@ -132,12 +133,32 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (atom-options (plist-get opt-plist :feed-options))
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'identity)
-	 atom-content-url entries feed filebuf)
+	 atom-content-url atom-try-git entries feed filebuf)
+
+    ;; process #+FEED_OPTIONS line
+    (when atom-options
+      (let ((org-export-plist-vars org-atom-export-plist-vars))
+	(setq opt-plist
+	      (org-export-add-options-to-plist opt-plist atom-options))))
+    (setq atom-content-url (or (plist-get opt-plist :feed-content-url)
+			       (format "%s%s.%s"
+				       (file-name-directory atom-url)
+				       (file-name-sans-extension
+					(file-name-nondirectory
+					 (buffer-file-name)))
+				       (or
+					(plist-get
+					 opt-plist :feed-content-extension)
+					org-export-html-extension)))
+	  atom-try-git (or (plist-get opt-plist :feed-prepare-try-git)
+			   org-atom-try-prepare-headline-git))
     ;; prepare headlines and skip entire file when no matches
     (when (and (not (string= atom-map-entries ""))
 	       (> (length
 		   (org-map-entries
-		    'org-atom-prepare-headline atom-map-entries)) 0))
+		    (lambda ()
+		      (org-atom-prepare-headline atom-try-git))
+		    atom-map-entries)) 0))
       ;; check mandatory options
       (when (string= atom-id "")
 	(error "Missing ID for feed"))
@@ -149,21 +170,6 @@ When PUB-DIR is set, use this as the publishing directory."
 				(find-file-noselect atom-file))
 			  (error "Need a file name to be able to export")))
 	(with-current-buffer to-buffer (erase-buffer)))
-      ;; process #+FEED_OPTIONS line
-      (when atom-options
-	(let ((org-export-plist-vars org-atom-export-plist-vars))
-	  (setq opt-plist
-		(org-export-add-options-to-plist opt-plist atom-options))))
-      (setq atom-content-url (or (plist-get opt-plist :feed-content-url)
-				 (format "%s%s.%s"
-				  (file-name-directory atom-url)
-				  (file-name-sans-extension
-				   (file-name-nondirectory
-				    (buffer-file-name)))
-				  (or
-				   (plist-get
-				    opt-plist :feed-content-extension)
-				   org-export-html-extension))))
       ;; maybe save modified headlines
       (save-buffer)
       (setq filebuf (buffer-string))
@@ -404,25 +410,24 @@ of headline as feed entry content."
 				       (org-uuidgen-p id))
 				  "urn:uuid:" id-prefix) id)))))))
 
-(defun org-atom-prepare-headline (&optional pom)
-  "Prepare headline at point or marker POM for export.
+(defun org-atom-prepare-headline (&optional trygit)
+  "Prepare headline at point for atom export.
 
-If POM is ommited, prepare headline at point."
-  (save-excursion
-    (goto-char (or pom (point)))
-    (let ((id (org-id-get-create))
-	  (dtime (or (org-entry-get nil org-atom-published-property-name)
-		     (org-entry-get nil org-atom-updated-property-name))))
-      (unless dtime
-	(org-entry-put nil org-atom-updated-property-name
-		       (concat "["
-			       (substring
-				(format-time-string
-				 (cdr org-time-stamp-formats)
-				 (or (if org-atom-try-prepare-headline-git
-					 (org-atom-prepare-headline-try-git))
-				     (current-time)))
-				1 -1) "]"))))))
+If optional argument TRYGIT is non-nil, try to obtain date for
+headline using git blame."
+  (let ((id (org-id-get-create))
+	(dtime (or (org-entry-get nil org-atom-published-property-name)
+		   (org-entry-get nil org-atom-updated-property-name))))
+    (unless dtime
+      (org-entry-put nil org-atom-updated-property-name
+		     (concat "["
+			     (substring
+			      (format-time-string
+			       (cdr org-time-stamp-formats)
+			       (or (if trygit
+				       (org-atom-prepare-headline-try-git))
+				   (current-time)))
+			      1 -1) "]")))))
 
 (defun org-atom-prepare-headline-try-git ()
   "Return date when headline at point was last modified.
