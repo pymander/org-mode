@@ -188,9 +188,7 @@ When PUB-DIR is set, use this as the publishing directory."
 				   (org-atom-export-headline
 				    (concat atom-url ",")
 				    atom-content-url
-				    nil
-				    (plist-get
-				     opt-plist :feed-publish-content))))
+				    opt-plist)))
 			       atom-map-entries))
 	;; maybe add author
 	(when body-only
@@ -344,72 +342,67 @@ PUB-DIR is the publishing directory."
       (unless visiting
 	(kill-buffer)))))
 
-(defun org-atom-export-headline (id-prefix content-url &optional
-					   pom publish-content)
+(defun org-atom-export-headline (id-prefix content-url plist)
   "Return atom:entry alist for headline.
 
 ID-PREFIX is a string that is used as prefix for the atom:id
 element.
 CONTENT-URL is a url pointing on the published html file.
-Optional argument POM is point or marker of headline.  If not
-set, export headline at point.
-If optional argument PUBLISH-CONTENT is non-nil, publish subtree
-of headline as feed entry content."
-  (save-excursion
-    (goto-char (or pom (point)))
-    (let* ((comps (org-heading-components))
-	   (title (nth 4 comps))
-	   (id (org-id-get))
-	   (published (org-entry-get nil org-atom-published-property-name))
-	   (updated (or (org-entry-get nil org-atom-updated-property-name)
-			published))
-	   (author (org-entry-get-multivalued-property nil "atom_author"))
-	   (href_alternate (org-entry-get nil "atom_href_alternate"))
-	   (href_via (org-entry-get nil "atom_href_via"))
-	   (href_related
-	    (org-entry-get-multivalued-property nil "atom_href_related")))
-      (append
-       (if published
+PLIST is the property list with export properties of the feed."
+  (let* ((comps (org-heading-components))
+	 (title (nth 4 comps))
+	 (id (org-id-get))
+	 (published (org-entry-get nil org-atom-published-property-name))
+	 (updated (or (org-entry-get nil org-atom-updated-property-name)
+		      published))
+	 (author (org-entry-get-multivalued-property nil "atom_author"))
+	 (href_alternate (org-entry-get nil "atom_href_alternate"))
+	 (href_via (org-entry-get nil "atom_href_via"))
+	 (href_related
+	  (org-entry-get-multivalued-property nil "atom_href_related")))
+    (append
+     (if published
+	 (list
+	  (list 'published nil (org-time-string-to-time published))))
+     (if author
+	 (mapcar '(lambda (a)
+		    (list 'author nil a))
+		 author))
+     (when (plist-get plist :feed-publish-content)
+       (let (beg end content)
+	 (save-excursion
+	   (org-back-to-heading)
+	   (setq beg (point))
+	   (outline-end-of-subtree)
+	   (setq end (point))
+	   (setq content (buffer-substring-no-properties beg end))
+	   (list (list 'content nil
+		       (org-atom-htmlize
+			content (file-name-directory content-url) plist)
+		       'html)))))
+     (if href_alternate
+	 (list
+	  (list 'link nil href_alternate nil 'alternate))
+       (if (and content-url (not (string= content-url "")))
 	   (list
-	    (list 'published nil (org-time-string-to-time published))))
-       (if author
-	   (mapcar '(lambda (a)
-		      (list 'author nil a))
-		   author))
-       (when publish-content
-	 (let (beg end content)
-	   (save-excursion
-	     (org-back-to-heading)
-	     (setq beg (point))
-	     (outline-end-of-subtree)
-	     (setq end (point))
-	     (setq content (buffer-substring-no-properties beg end))
-	     (list (list 'content nil
-			 (org-atom-htmlize
-			  content (file-name-directory content-url)) 'html)))))
-       (if href_alternate
-	   (list
-	    (list 'link nil href_alternate nil 'alternate))
-	 (if (and content-url (not (string= content-url "")))
-	     (list
-	      (list
-	       'link nil (concat content-url "#ID-" id) nil "alternate"))))
-       (if href_via
-	   (list
-	    (list 'link nil href_via nil 'via)))
-       (if href_related
-	   (mapcar '(lambda (url)
-		      (list 'link nil url nil 'related))
-		   href_related))
-       (list
-	(list 'title
-	      (list
-	       (cons 'type 'html))
-	      (org-atom-htmlize title (file-name-directory content-url)))
-	(list 'updated nil (org-time-string-to-time updated))
-	(list 'id nil (concat (if (and org-atom-prefer-urn-uuid
-				       (org-uuidgen-p id))
-				  "urn:uuid:" id-prefix) id)))))))
+	    (list
+	     'link nil (concat content-url "#ID-" id) nil "alternate"))))
+     (if href_via
+	 (list
+	  (list 'link nil href_via nil 'via)))
+     (if href_related
+	 (mapcar '(lambda (url)
+		    (list 'link nil url nil 'related))
+		 href_related))
+     (list
+      (list 'title
+	    (list
+	     (cons 'type 'html))
+	    (org-atom-htmlize title (file-name-directory content-url)))
+      (list 'updated nil (org-time-string-to-time updated))
+      (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
+				     (org-uuidgen-p id))
+				"urn:uuid:" id-prefix) id))))))
 
 (defun org-atom-prepare-headline (&optional trygit)
   "Prepare headline at point for atom export.
@@ -452,10 +445,11 @@ Return nil if calling git blame on current file failes."
 	    (when (re-search-forward "^author-time \\([[:digit:]]+\\)")
 	      (seconds-to-time (string-to-number (match-string 1))))))))))
 
-(defun org-atom-htmlize (string url)
+(defun org-atom-htmlize (string url &optional plist)
   "Return sanitized html markup for STRING.
 URL is a string with a url that is used to resolve relative
-links."
+links.
+Optional argument PLIST is a property list with export options."
   (let* ((tmpfile (make-temp-file "org-atom-"))
 	 (tmpbuf (find-file-noselect tmpfile))
 	 html)
@@ -464,8 +458,7 @@ links."
       (org-mode)
       (save-buffer)
       (setq html (atom-syndication-sanitize
-		  (org-export-region-as-html
-		   (point-min) (point-max) t 'string))))
+		  (org-export-as-html nil nil plist 'string t))))
     (kill-buffer tmpbuf)
     (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^:\"]+\\)"
 			      (concat "\\1=\"" url "/\\2\"") html)))
