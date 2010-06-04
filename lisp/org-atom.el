@@ -460,8 +460,8 @@ Optional argument PLIST is a property list with export options."
       (setq html (atom-syndication-sanitize
 		  (org-export-as-html nil nil plist 'string t))))
     (kill-buffer tmpbuf)
-    (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^:\"]+\\)"
-			      (concat "\\1=\"" url "/\\2\"") html)))
+    (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^#][^:\"]?+\"\\)"
+			      (concat "\\1=\"" url "\\2\"") html)))
 
 ;; add infile options
 (dolist (opt org-atom-infile-options)
