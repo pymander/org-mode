@@ -54,7 +54,6 @@
 
 (defconst org-atom-export-plist-vars
   '((:feed-publish-content "content" org-atom-publish-content)
-    (:feed-content-extension "ext" org-export-html-extension)
     (:feed-prepare-try-git "git" org-atom-try-prepare-headline-git))
   "List of properties that represent export/publishing variables.
 Each element is a list of 3 items:
@@ -119,8 +118,9 @@ When PUB-DIR is set, use this as the publishing directory."
 					(org-infile-export-plist)))
 	 (atom-url (org-trim (or (plist-get opt-plist :feed-url) "")))
 	 (atom-id (org-trim (or (plist-get opt-plist :feed-id) "")))
-	 (atom-map-entries (org-trim (or (plist-get opt-plist :feed-map-entries)
-					 "")))
+	 (atom-map-entries (org-trim (or
+				      (plist-get opt-plist :feed-map-entries)
+				      "")))
 	 (author (plist-get opt-plist :author))
 	 (email (plist-get opt-plist :email))
 	 (description (or (plist-get opt-plist :feed-description)
@@ -334,7 +334,8 @@ PUB-DIR is the publishing directory."
 			   (if pub-url-fse
 			       (list
 				:feed-url
-				(concat pub-url-fse "." org-atom-feed-extension)
+				(concat
+				 pub-url-fse "." org-atom-feed-extension)
 				:feed-content-url
 				(concat pub-url-fse
 					(or (plist-get
