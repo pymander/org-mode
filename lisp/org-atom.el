@@ -183,22 +183,22 @@ When PUB-DIR is set, use this as the publishing directory."
 					   org-export-exclude-tags))
 	(message "Exporting...")
 	(setq entries
-	      (org-map-entries '(lambda ()
-				  (append
-				   (org-atom-export-headline
-				    (concat atom-url ",")
-				    atom-content-url
-				    opt-plist)))
+	      (org-map-entries (lambda ()
+				 (append
+				  (org-atom-export-headline
+				   (concat atom-url ",")
+				   atom-content-url
+				   opt-plist)))
 			       atom-map-entries))
 	;; maybe add author
 	(when body-only
-	  (setq entries (mapcar '(lambda (e)
-				   (append
-				    (unless (assoc 'author e)
-				      (list (if atom-publish-email
-						(list 'author nil author email)
-					      (list 'author nil author))))
-				    e)))))
+	  (setq entries (mapcar (lambda (e)
+				  (append
+				   (unless (assoc 'author e)
+				     (list (if atom-publish-email
+					       (list 'author nil author email)
+					     (list 'author nil author))))
+				   e)))))
 	(setq feed
 	      (if body-only
 		  (mapconcat 'atom-syndication-element-entry entries "")
@@ -223,8 +223,8 @@ When PUB-DIR is set, use this as the publishing directory."
 		   (if atom-publish-email
 		       (list 'author nil author email)
 		     (list 'author nil author)))
-		  (mapcar '(lambda (entry)
-			     (cons 'entry (list nil entry))) entries)))))
+		  (mapcar (lambda (entry)
+			    (cons 'entry (list nil entry))) entries)))))
 	(if (eq to-buffer 'string)
 	    feed
 	  (with-current-buffer to-buffer
@@ -365,8 +365,8 @@ PLIST is the property list with export properties of the feed."
 	 (list
 	  (list 'published nil (org-time-string-to-time published))))
      (if author
-	 (mapcar '(lambda (a)
-		    (list 'author nil a))
+	 (mapcar (lambda (a)
+		   (list 'author nil a))
 		 author))
      (when (plist-get plist :feed-publish-content)
        (let (beg end content)
@@ -391,8 +391,8 @@ PLIST is the property list with export properties of the feed."
 	 (list
 	  (list 'link nil href_via nil 'via)))
      (if href_related
-	 (mapcar '(lambda (url)
-		    (list 'link nil url nil 'related))
+	 (mapcar (lambda (url)
+		   (list 'link nil url nil 'related))
 		 href_related))
      (list
       (list 'title
