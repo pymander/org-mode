@@ -134,7 +134,6 @@ When PUB-DIR is set, use this as the publishing directory."
 	 (body-only (or body-only (plist-get opt-plist :body-only)))
 	 (atom-syndication-construct-text-html-function 'identity)
 	 atom-content-url atom-try-git entries feed filebuf)
-
     ;; process #+FEED_OPTIONS line
     (when atom-options
       (let ((org-export-plist-vars org-atom-export-plist-vars))
@@ -184,11 +183,10 @@ When PUB-DIR is set, use this as the publishing directory."
 	(message "Exporting...")
 	(setq entries
 	      (org-map-entries (lambda ()
-				 (append
-				  (org-atom-export-headline
-				   (concat atom-url ",")
-				   atom-content-url
-				   opt-plist)))
+				 (org-atom-export-headline
+				  (concat atom-url ",")
+				  atom-content-url
+				  opt-plist))
 			       atom-map-entries))
 	;; maybe add author
 	(when body-only
