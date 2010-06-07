@@ -372,8 +372,10 @@ PLIST is the property list with export properties of the feed."
 	   (setq end (point))
 	   (setq content (buffer-substring-no-properties beg end))
 	   (list (list 'content nil
-		       (org-atom-htmlize
-			content (file-name-directory content-url) plist)
+		       (atom-syndication-sanitize
+			(org-atom-absolute-ref
+			 (org-export-region-as-html beg end t 'string)
+			 (file-name-directory content-url)))
 		       'html)))))
      (if href_alternate
 	 (list
@@ -393,7 +395,7 @@ PLIST is the property list with export properties of the feed."
       (list 'title
 	    (list
 	     (cons 'type 'html))
-	    (org-atom-htmlize title (file-name-directory content-url)))
+	    (org-atom-htmlize-title title (file-name-directory content-url)))
       (list 'updated nil (org-time-string-to-time updated))
       (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
 				     (org-uuidgen-p id))
@@ -440,22 +442,17 @@ Return nil if calling git blame on current file failes."
 	    (when (re-search-forward "^author-time \\([[:digit:]]+\\)")
 	      (seconds-to-time (string-to-number (match-string 1))))))))))
 
-(defun org-atom-htmlize (string url &optional plist)
-  "Return sanitized html markup for STRING.
-URL is a string with a url that is used to resolve relative
-links.
-Optional argument PLIST is a property list with export options."
-  (let* ((tmpfile (make-temp-file "org-atom-"))
-	 (tmpbuf (find-file-noselect tmpfile))
-	 html)
-    (with-current-buffer tmpbuf
-      (insert string)
+(defun org-atom-htmlize-title (title url)
+  "Return sanitized HTML markup of TITLE.
+If TITLE contains relative links, use URL to make them absolute."
+  (with-temp-buffer
+    (let (html)
+      (insert title)
       (org-mode)
-      (save-buffer)
-      (setq html (atom-syndication-sanitize
-		  (org-export-as-html nil nil plist 'string t))))
-    (kill-buffer tmpbuf)
-    (org-atom-absolute-ref html url)))
+      (setq html (org-export-as-html nil nil nil 'string t))
+      (when (string-match "^[^<]*<p>\\([^<\n]+\\)" html)
+	(setq html (match-string 1 html)))
+      (atom-syndication-sanitize html))))
 
 (defun org-atom-absolute-ref (html url)
   "Return HTML with absolute references.
