@@ -4,7 +4,6 @@
 
 ;; Author: David Maus <dmaus [at] ictsoc.de>
 ;; Keywords: outlines, hypermedia
-;; Version: 0.1beta
 ;;
 ;; This file is NOT part of Gnu Emacs.
 ;;
@@ -46,11 +45,8 @@
     ("FEED_DESCRIPTION" :feed-description)
     ("FEED_OPTIONS" :feed-options)))
 
-(defconst org-atom-generator-name "Org/Atom"
+(defconst org-atom-generator-name "Emacs/Org mode"
   "Name of the atom generator.")
-
-(defconst org-atom-generator-version "0.1beta"
-  "Version string of the atom generator.")
 
 (defconst org-atom-export-plist-vars
   '((:feed-publish-content "content" org-atom-publish-content)
@@ -208,7 +204,8 @@ When PUB-DIR is set, use this as the publishing directory."
 		   (list 'title nil (org-trim atom-title))
 		   (list 'generator nil
 			 org-atom-generator-name
-			 org-atom-generator-version)
+			 org-version
+			 "http://orgmode.org/")
 		   (list 'id nil (concat
 				  (if (and org-atom-prefer-urn-uuid
 					   (org-uuidgen-p atom-id))
