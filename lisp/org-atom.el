@@ -455,8 +455,14 @@ Optional argument PLIST is a property list with export options."
       (setq html (atom-syndication-sanitize
 		  (org-export-as-html nil nil plist 'string t))))
     (kill-buffer tmpbuf)
-    (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^#][^:\"]?+\"\\)"
-			      (concat "\\1=\"" url "\\2\"") html)))
+    (org-atom-absolute-ref html url)))
+
+(defun org-atom-absolute-ref (html url)
+  "Return HTML with absolute references.
+Relative references are considered to be relative to URL and
+replaced by absolute references."
+  (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^#][^:\"]?+\"\\)"
+			      (concat "\\1=\"" url "\\2\"") html))
 
 ;; add infile options
 (dolist (opt org-atom-infile-options)
