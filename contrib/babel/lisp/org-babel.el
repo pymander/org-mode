@@ -46,7 +46,9 @@ then run `org-babel-execute-src-block'."
 then run `org-babel-expand-src-block'."
   (interactive)
   (let ((info (org-babel-get-src-block-info)))
-    (if info (progn (org-babel-expand-src-block current-prefix-arg info) t) nil)))
+    (if info
+	(progn (org-babel-expand-src-block current-prefix-arg info) t)
+      nil)))
 
 (defadvice org-edit-special (around org-babel-prep-session-for-edit activate)
   "Prepare the current source block's session according to it's
@@ -75,7 +77,9 @@ to `org-open-at-point'."
 then run `org-babel-load-in-session'."
   (interactive)
   (let ((info (org-babel-get-src-block-info)))
-    (if info (progn (org-babel-load-in-session current-prefix-arg info) t) nil)))
+    (if info
+	(progn (org-babel-load-in-session current-prefix-arg info) t)
+      nil)))
 
 (add-hook 'org-metaup-hook 'org-babel-load-in-session-maybe)
 
@@ -89,7 +93,8 @@ then run `org-babel-pop-to-session'."
 (add-hook 'org-metadown-hook 'org-babel-pop-to-session-maybe)
 
 (defconst org-babel-header-arg-names
-  '(cache cmdline colnames dir exports file noweb results session tangle var)
+  '(cache cmdline colnames dir exports file noweb results
+	  session tangle var noeval)
   "Common header arguments used by org-babel.  Note that
 individual languages may define their own language specific
 header arguments as well.")
@@ -384,10 +389,11 @@ the current buffer."
   "Call `org-babel-execute-src-block' on every source block in
 the current subtree."
   (interactive "P")
-  (save-excursion
-    (org-narrow-to-subtree)
-    (org-babel-execute-buffer)
-    (widen)))
+  (save-restriction
+    (save-excursion
+      (org-narrow-to-subtree)
+      (org-babel-execute-buffer)
+      (widen))))
 
 (defun org-babel-get-src-block-info (&optional header-vars-only)
   "Get information of the current source block.
@@ -934,25 +940,33 @@ code ---- the results are extracted in the syntax of the source
         (when (member "file" result-params)
           (setq result (org-babel-result-to-file result))))
     (unless (listp result) (setq result (format "%S" result))))
-  (if (and result-params (member "replace" result-params)
-           (not (member "silent" result-params)))
-      (org-babel-remove-result info))
   (if (= (length result) 0)
       (if (member "value" result-params)
 	  (message "No result returned by source block")
 	(message "Source block produced no output"))
     (if (and result-params (member "silent" result-params))
-        (progn (message (replace-regexp-in-string "%" "%%" (format "%S" result)))
-               result)
+        (progn
+	  (message (replace-regexp-in-string "%" "%%" (format "%S" result)))
+	  result)
       (when (and (stringp result) ;; ensure results end in a newline
                  (not (or (string-equal (substring result -1) "\n")
                           (string-equal (substring result -1) "\r"))))
         (setq result (concat result "\n")))
       (save-excursion
-	(let ((existing-result (org-babel-where-is-src-block-result t info hash))
+	(let ((existing-result (org-babel-where-is-src-block-result
+				t info hash))
 	      (results-switches
                (cdr (assoc :results_switches (third info)))) beg)
-	  (when existing-result (goto-char existing-result) (forward-line 1))
+	  (when existing-result
+	    (goto-char existing-result)
+	    (forward-line 1)
+	    (cond
+	     ((member "replace" result-params)
+	      (delete-region (point) (org-babel-result-end)))
+	     ((member "append" result-params)
+	      (goto-char (org-babel-result-end)))
+	     ((member "prepend" result-params) ;; already there
+	      )))
 	  (setq results-switches
                 (if results-switches (concat " " results-switches) ""))
 	  (cond
@@ -965,7 +979,7 @@ code ---- the results are extracted in the syntax of the source
 					  (listp (cdr (car result)))))
 				 result (list result))
 			     '(:fmt (lambda (cell) (format "%s" cell)))) "\n"))
-	    (goto-char beg) (org-cycle))
+	    (goto-char beg) (org-table-align))
 	   ((member "file" result-params)
 	    (insert result))
 	   ((member "html" result-params)
@@ -1063,7 +1077,7 @@ parameters when merging lists."
   (let ((results-exclusive-groups
 	 '(("file" "vector" "table" "scalar" "raw" "org"
             "html" "latex" "code" "pp")
-	   ("replace" "silent")
+	   ("replace" "silent" "append" "prepend")
 	   ("output" "value")))
 	(exports-exclusive-groups
 	 '(("code" "results" "both" "none")))
@@ -1218,21 +1232,24 @@ block but are passed literally to the \"example-block\"."
                           (let ((raw (org-babel-ref-resolve-reference
                                       source-name nil)))
                             (if (stringp raw) raw (format "%S" raw)))
-                        (let ((point (org-babel-find-named-block source-name)))
-                          (if point
-                              (save-excursion
-                                (goto-char point)
-                                (org-babel-trim
-                                 (org-babel-expand-noweb-references
-                                  (org-babel-get-src-block-info))))
-                            ;; optionally raise an error if named
-                            ;; source-block doesn't exist
-                            (if (member lang org-babel-noweb-error-langs)
-                                (error
-                                 (concat "<<%s>> could not be resolved "
-                                         "(see `org-babel-noweb-error-langs')")
-                                 source-name)
-                              "")))) "[\n\r]") (concat "\n" prefix)))))
+			(save-restriction
+			  (widen)
+			  (let ((point (org-babel-find-named-block source-name)))
+			    (if point
+				(save-excursion
+				  (goto-char point)
+				  (org-babel-trim
+				   (org-babel-expand-noweb-references
+				    (org-babel-get-src-block-info))))
+			      ;; optionally raise an error if named
+			      ;; source-block doesn't exist
+			      (if (member lang org-babel-noweb-error-langs)
+				  (error
+				   (concat "<<%s>> could not be resolved "
+					   "(see `org-babel-noweb-error-langs')")
+				   source-name)
+				"")))))
+		      "[\n\r]") (concat "\n" prefix)))))
         (nb-add (buffer-substring index (point-max)))))
     new-body))
 
@@ -1272,7 +1289,9 @@ This is taken almost directly from `org-read-prop'."
 (defun org-babel-number-p (string)
   "Return t if STRING represents a number"
   (if (and (string-match "^-?[0-9]*\\.?[0-9]*$" string)
-           (= (match-end 0) (length string)))
+           (= (length (substring string (match-beginning 0)
+				 (match-end 0)))
+	      (length string)))
       (string-to-number string)))
 
 (defun org-babel-import-elisp-from-file (file-name)

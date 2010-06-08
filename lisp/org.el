@@ -344,6 +344,39 @@ the following lines anywhere in the buffer:
 	  (const :tag "Not" nil)
 	  (const :tag "Globally (slow on startup in large files)" t)))
 
+(defcustom org-use-sub-superscripts t
+  "Non-nil means interpret \"_\" and \"^\" for export.
+When this option is turned on, you can use TeX-like syntax for sub- and
+superscripts.  Several characters after \"_\" or \"^\" will be
+considered as a single item - so grouping with {} is normally not
+needed.  For example, the following things will be parsed as single
+sub- or superscripts.
+
+ 10^24   or   10^tau     several digits will be considered 1 item.
+ 10^-12  or   10^-tau    a leading sign with digits or a word
+ x^2-y^3                 will be read as x^2 - y^3, because items are
+			 terminated by almost any nonword/nondigit char.
+ x_{i^2} or   x^(2-i)    braces or parenthesis do grouping.
+
+Still, ambiguity is possible - so when in doubt use {} to enclose the
+sub/superscript.  If you set this variable to the symbol `{}',
+the braces are *required* in order to trigger interpretations as
+sub/superscript.  This can be helpful in documents that need \"_\"
+frequently in plain text.
+
+Not all export backends support this, but HTML does.
+
+This option can also be set with the +OPTIONS line, e.g. \"^:nil\"."
+  :group 'org-startup
+  :group 'org-export-translation
+  :type '(choice
+	  (const :tag "Always interpret" t)
+	  (const :tag "Only with braces" {})
+	  (const :tag "Never interpret" nil)))
+
+(defvaralias 'org-export-with-sub-superscripts 'org-use-sub-superscripts)
+
+
 (defcustom org-startup-with-beamer-mode nil
   "Non-nil means turn on `org-beamer-mode' on startup.
 This can also be configured on a per-file basis by adding one of
@@ -890,6 +923,18 @@ When t, the following will happen while the cursor is in the headline:
 - When after the headline text, kill the tags."
   :group 'org-edit-structure
   :type 'boolean)
+
+(defcustom org-ctrl-k-protect-subtree nil
+  "Non-nil means, do not delete a hidden subtree with C-k.
+When set to the symbol `error', simply throw an error when C-k is
+used to kill (part-of) a headline that has hidden text behind it.
+Any other non-nil value will result in a query to the user, if it is
+OK to kill that hidden subtree.  When nil, kill without remorse."
+  :group 'org-edit-structure
+  :type '(choice
+	  (const :tag "Do not protect hidden subtrees" nil)
+	  (const :tag "Protect hidden subtrees with a security query" t)
+	  (const :tag "Never kill a hidden subtree with C-k" error)))
 
 (defcustom org-yank-folded-subtrees t
   "Non-nil means when yanking subtrees, fold them.
@@ -1485,9 +1530,9 @@ you can use this variable to set the application for a given file
 extension.  The entries in this list are cons cells where the car identifies
 files and the cdr the corresponding command.  Possible values for the
 file identifier are
- \"string\"    A string as a file identifier can be interpreted in different 
+ \"string\"    A string as a file identifier can be interpreted in different
                ways, depending on its contents:
-               
+
                - Alphanumeric characters only:
                  Match links with this file extension.
                  Example: (\"pdf\" . \"evince %s\")
@@ -3176,6 +3221,11 @@ When nil, the \\name form remains in the buffer."
   :group 'org-appearance
   :type 'boolean)
 
+(defcustom org-pretty-entities-include-sub-superscripts t
+  "Non-nil means, pretty entity display includes formatting sub/superscripts."
+  :group 'org-appearance
+  :type 'boolean)
+
 (defvar org-emph-re nil
   "Regular expression for matching emphasis.
 After a match, the match groups contain these elements:
@@ -4047,9 +4097,11 @@ means to push this value onto the list in the variable.")
     (let ((re (org-make-options-regexp
 	       '("CATEGORY" "TODO" "COLUMNS"
 		 "STARTUP" "ARCHIVE" "FILETAGS" "TAGS" "LINK" "PRIORITIES"
-		 "CONSTANTS" "PROPERTY" "DRAWERS" "SETUPFILE" "LATEX_CLASS")
+		 "CONSTANTS" "PROPERTY" "DRAWERS" "SETUPFILE" "LATEX_CLASS"
+		 "OPTIONS")
 	       "\\(?:[a-zA-Z][0-9a-zA-Z_]*_TODO\\)"))
 	  (splitre "[ \t]+")
+	  (scripts org-use-sub-superscripts)
 	  kwds kws0 kwsa key log value cat arch tags const links hw dws
 	  tail sep kws1 prio props ftags drawers beamer-p
 	  ext-setup-or-nil setup-contents (start 0))
@@ -4122,6 +4174,9 @@ means to push this value onto the list in the variable.")
 				      '(face t fontified t) arch))
 	     ((equal key "LATEX_CLASS")
 	      (setq beamer-p (equal value "beamer")))
+	     ((equal key "OPTIONS")
+	      (if (string-match "\\([ \t]\\|\\`\\)\\^:\\(t\\|nil\\|{}\\)" value)
+		  (setq scripts (read (match-string 2 value)))))
 	     ((equal key "SETUPFILE")
 	      (setq setup-contents (org-file-contents
 				    (expand-file-name
@@ -4134,6 +4189,7 @@ means to push this value onto the list in the variable.")
 			      "\n" setup-contents "\n"
 			      (substring ext-setup-or-nil start)))))
 	     ))))
+      (org-set-local 'org-use-sub-superscripts scripts)
       (when cat
 	(org-set-local 'org-category (intern cat))
 	(push (cons "CATEGORY" cat) props))
@@ -4617,6 +4673,47 @@ Here is what the match groups contain after a match:
 (defvar org-any-link-re nil
   "Regular expression matching any link.")
 
+(defcustom org-match-sexp-depth 3
+  "Number of stacked braces for sub/superscript matching.
+This has to be set before loading org.el to be effective."
+  :group 'org-export-translation ; ??????????????????????????/
+  :type 'integer)
+
+(defun org-create-multibrace-regexp (left right n)
+  "Create a regular expression which will match a balanced sexp.
+Opening delimiter is LEFT, and closing delimiter is RIGHT, both given
+as single character strings.
+The regexp returned will match the entire expression including the
+delimiters.  It will also define a single group which contains the
+match except for the outermost delimiters.  The maximum depth of
+stacked delimiters is N.  Escaping delimiters is not possible."
+  (let* ((nothing (concat "[^" left right "]*?"))
+	 (or "\\|")
+	 (re nothing)
+	 (next (concat "\\(?:" nothing left nothing right "\\)+" nothing)))
+    (while (> n 1)
+      (setq n (1- n)
+	    re (concat re or next)
+	    next (concat "\\(?:" nothing left next right "\\)+" nothing)))
+    (concat left "\\(" re "\\)" right)))
+
+(defvar org-match-substring-regexp
+  (concat
+   "\\([^\\]\\)\\([_^]\\)\\("
+   "\\(" (org-create-multibrace-regexp "{" "}" org-match-sexp-depth) "\\)"
+   "\\|"
+   "\\(" (org-create-multibrace-regexp "(" ")" org-match-sexp-depth) "\\)"
+   "\\|"
+   "\\(\\(?:\\*\\|[-+]?[^-+*!@#$%^_ \t\r\n,:\"?<>~;./{}=()]+\\)\\)\\)")
+  "The regular expression matching a sub- or superscript.")
+
+(defvar org-match-substring-with-braces-regexp
+  (concat
+   "\\([^\\]\\)\\([_^]\\)\\("
+   "\\(" (org-create-multibrace-regexp "{" "}" org-match-sexp-depth) "\\)"
+   "\\)")
+  "The regular expression matching a sub- or superscript, forcing braces.")
+
 (defun org-make-link-regexps ()
   "Update the link regular expressions.
 This should be called after the variable `org-link-types' has changed."
@@ -4721,7 +4818,7 @@ The time stamps may be either active or inactive.")
 		 (org-remove-flyspell-overlays-in
 		  (match-beginning 0) (match-end 0)))
 	    (add-text-properties (match-beginning 2) (match-end 2)
-				 '(font-lock-multiline t))
+				 '(font-lock-multiline t org-emphasis t))
 	    (when org-hide-emphasis-markers
 	      (add-text-properties (match-end 4) (match-beginning 5)
 				   '(invisible org-link))
@@ -4880,7 +4977,8 @@ will be prompted for."
 	     '(font-lock-fontified t face org-meta-line))
 	    t)
 	   ((or (member dc1 '("begin:" "end:" "caption:" "label:"
-			      "orgtbl:" "tblfm:" "tblname:"))
+			      "orgtbl:" "tblfm:" "tblname:" "result:"
+			      "results:" "source:" "srcname:" "call:"))
 		(and (match-end 4) (equal dc3 "attr")))
 	    (add-text-properties
 	     beg (match-end 0)
@@ -5249,6 +5347,7 @@ For plain list items, if they are matched by `outline-regexp', this returns
 	   ;; Specials
 	   '(org-do-latex-and-special-faces)
 	   '(org-fontify-entities)
+	   '(org-raise-scripts)
 	   ;; Code
 	   '(org-activate-code (1 'org-code t))
 	   ;; COMMENT
@@ -5283,9 +5382,11 @@ For plain list items, if they are matched by `outline-regexp', this returns
   (let (ee)
     (when org-pretty-entities
       (catch 'match
-	(while (re-search-forward "\\\\\\([a-zA-Z][a-zA-Z0-9]*\\)[^[:alnum:]]"
-				  limit t)
-	  (if (and (setq ee (org-entity-get (match-string 1)))
+	(while (re-search-forward
+		"\\\\\\([a-zA-Z][a-zA-Z0-9]*\\)\\($\\|[^[:alnum:]\n]\\)"
+		limit t)
+	  (if (and (not (org-in-indented-comment-line))
+		   (setq ee (org-entity-get (match-string 1)))
 		   (= (length (nth 6 ee)) 1))
 	      (progn
 		(add-text-properties
@@ -5373,6 +5474,7 @@ If KWD is a number, get the corresponding match group."
 	 (inhibit-read-only t) (inhibit-point-motion-hooks t)
 	 (inhibit-modification-hooks t)
 	 deactivate-mark buffer-file-name buffer-file-truename)
+    (decompose-region beg end)
     (remove-text-properties
      beg end
      (if org-indent-mode
@@ -5380,10 +5482,65 @@ If KWD is a number, get the corresponding match group."
 	 '(mouse-face t keymap t org-linked-text t
 		      invisible t intangible t
 		      line-prefix t wrap-prefix t
-		      org-no-flyspell t)
+		      org-no-flyspell t org-emphasis t)
        '(mouse-face t keymap t org-linked-text t
 		    invisible t intangible t
-		    org-no-flyspell t)))))
+		    org-no-flyspell t org-emphasis t)))
+    (org-remove-font-lock-display-properties beg end)))
+
+(defconst org-script-display  '(((raise -0.3) (height 0.7))
+				((raise 0.3)  (height 0.7))
+				((raise -0.5))
+				((raise 0.5)))
+  "Display properties for showing superscripts and subscripts.")
+
+(defun org-remove-font-lock-display-properties (beg end)
+  "Remove specific display properties that have been added by font lock.
+The will remove the raise properties that are used to show superscripts
+and subscriipts."
+  (let (next prop)
+    (while (< beg end)
+      (setq next (next-single-property-change beg 'display nil end)
+	    prop (get-text-property beg 'display))
+      (if (member prop org-script-display)
+	  (put-text-property beg next 'display nil))
+      (setq beg next))))
+
+(defun org-raise-scripts (limit)
+  "Add raise properties to sub/superscripts."
+  (when (and org-pretty-entities org-pretty-entities-include-sub-superscripts)
+    (if (re-search-forward
+	 (if (eq org-use-sub-superscripts t)
+	     org-match-substring-regexp
+	   org-match-substring-with-braces-regexp)
+	 limit t)
+	(let* ((pos (point)) table-p comment-p emph-p link-p)
+	  (setq emph-p (get-text-property (match-beginning 3) 'org-emphasis))
+	  (setq link-p (get-text-property (match-beginning 3) 'mouse-face))
+	  (goto-char (point-at-bol))
+	  (setq table-p (org-looking-at-p org-table-dataline-regexp)
+		comment-p (org-looking-at-p "[ \t]*#"))
+	  (goto-char pos)
+	  (if (or comment-p emph-p link-p)
+	      t
+	    (put-text-property (match-beginning 3) (match-end 0)
+			       'display
+			       (if (equal (char-after (match-beginning 2)) ?^)
+				   (nth (if table-p 3 1) org-script-display)
+				 (nth (if table-p 2 0) org-script-display)))
+	    (add-text-properties (match-beginning 2) (match-end 2)
+				 (list 'invisible t
+				       'org-dwidth t 'org-dwidth-n 1))
+	    (if (and (eq (char-after (match-beginning 3)) ?{)
+		     (eq (char-before (match-end 3)) ?}))
+		(progn
+		  (add-text-properties
+		   (match-beginning 3) (1+ (match-beginning 3))
+		   (list 'invisible t 'org-dwidth t 'org-dwidth-n 1))
+		  (add-text-properties
+		   (1- (match-end 3)) (match-end 3)
+		   (list 'invisible t 'org-dwidth t 'org-dwidth-n 1))))
+	    t)))))
 
 ;;;; Visibility cycling, including org-goto and indirect buffer
 
@@ -6028,6 +6185,7 @@ the range."
 
 (defun org-show-block-all ()
   "Unfold all blocks in the current buffer."
+  (interactive)
   (mapc 'delete-overlay org-hide-block-overlays)
   (setq org-hide-block-overlays nil))
 
@@ -9837,7 +9995,7 @@ This can be done with a 0 prefix: `C-0 C-c C-w'"
 			  (< pos (save-excursion
 				   (org-end-of-subtree t t))))))
 	      (error "Cannot refile to position inside the tree or region"))
-	  
+
 	  (setq nbuf (or (find-buffer-visiting file)
 			 (find-file-noselect file)))
 	  (if goto
@@ -13787,10 +13945,15 @@ The prompt will suggest to enter an ISO date, but you can also enter anything
 which will at least partially be understood by `parse-time-string'.
 Unrecognized parts of the date will default to the current day, month, year,
 hour and minute.  If this command is called to replace a timestamp at point,
-of to enter the second timestamp of a range, the default time is taken from the
-existing stamp.  For example,
+of to enter the second timestamp of a range, the default time is taken
+from the existing stamp.  Furthermore, the command prefers the future,
+so if you are giving a date where the year is not given, and the day-month
+combination is already past in the current year, it will assume you
+mean next year.  For details, see the manual.  A few examples:
+
   3-2-5         --> 2003-02-05
   feb 15        --> currentyear-02-15
+  2/15          --> currentyear-02-15
   sep 12 9      --> 2009-09-12
   12:45         --> today 12:45
   22 sept 0:34  --> currentyear-09-22 0:34
@@ -13843,6 +14006,7 @@ user."
 		    (setq def (apply 'encode-time defdecode)
 			  defdecode (decode-time def)))))
 	 (calendar-frame-setup nil)
+	 (calendar-setup nil)
 	 (calendar-move-hook nil)
 	 (calendar-view-diary-initially-flag nil)
 	 (calendar-view-holidays-initially-flag nil)
@@ -14036,7 +14200,7 @@ user."
 			       t nil ans)))
     ;; Help matching american dates, like 5/30 or 5/30/7
     (when (string-match
-	   "^ *\\([0-3]?[0-9]\\)/\\([0-1]?[0-9]\\)\\(/\\([0-9]+\\)\\)?\\([^/0-9]\\|$\\)" ans)
+	   "^ *\\(0?[1-9]\\|1[012]\\)/\\(0?[1-9]\\|[12][0-9]\\|3[01]\\)\\(/\\([0-9]+\\)\\)?\\([^/0-9]\\|$\\)" ans)
       (setq year (if (match-end 4)
 		     (string-to-number (match-string 4 ans))
 		   (progn (setq kill-year t)
@@ -16697,16 +16861,16 @@ When in an #+include line, visit the include file.  Otherwise call
 `ffap' to visit the file at point."
   (interactive)
   (cond
-   ((org-at-table.el-p)
-    (org-edit-src-code))
-   ((org-at-table-p)
-    (call-interactively 'org-table-edit-formulas))
    ((save-excursion
       (beginning-of-line 1)
       (looking-at "\\(?:#\\+\\(?:setupfile\\|include\\):?[ \t]+\"?\\|[ \t]*<include\\>.*?file=\"\\)\\([^\"\n>]+\\)"))
     (find-file (org-trim (match-string 1))))
    ((org-edit-src-code))
    ((org-edit-fixed-width-region))
+   ((org-at-table.el-p)
+    (org-edit-src-code))
+   ((org-at-table-p)
+    (call-interactively 'org-table-edit-formulas))
    (t (call-interactively 'ffap))))
 
 
@@ -18440,6 +18604,11 @@ depending on context."
    ((or (not org-special-ctrl-k)
 	(bolp)
 	(not (org-on-heading-p)))
+    (if (and (get-char-property (min (point-max) (point-at-eol)) 'invisible)
+	     org-ctrl-k-protect-subtree)
+	(if (or (eq org-ctrl-k-protect-subtree 'error)
+		(not (y-or-n-p "Kill hidden subtree along with headline? ")))
+	    (error "C-k aborted - would kill hidden subtree")))
     (call-interactively 'kill-line))
    ((looking-at (org-re ".*?\\S-\\([ \t]+\\(:[[:alnum:]_@:]+:\\)\\)[ \t]*$"))
     (kill-region (point) (match-beginning 1))
