@@ -377,17 +377,17 @@ PLIST is the property list with export properties of the feed."
 			 (org-export-region-as-html beg end t 'string)
 			 (file-name-directory content-url)))
 		       'html)))))
-     (if href_alternate
+     (if (and href_alternate (not (string= href_alternate "")))
 	 (list
 	  (list 'link nil href_alternate nil 'alternate))
        (if (and content-url (not (string= content-url "")))
 	   (list
 	    (list
 	     'link nil (concat content-url "#ID-" id) nil "alternate"))))
-     (if href_via
+     (if (and href_via (not (string= href_via "")))
 	 (list
 	  (list 'link nil href_via nil 'via)))
-     (if href_related
+     (if (and href_related (not (string= href_related "")))
 	 (mapcar (lambda (url)
 		   (list 'link nil url nil 'related))
 		 href_related))
