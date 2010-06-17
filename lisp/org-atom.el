@@ -367,6 +367,7 @@ PLIST is the property list with export properties of the feed."
        (let (beg end content)
 	 (save-excursion
 	   (org-back-to-heading t)
+	   (end-of-line 2)
 	   (setq beg (point))
 	   (org-end-of-subtree t)
 	   (setq end (point))
