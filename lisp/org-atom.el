@@ -372,11 +372,11 @@ PLIST is the property list with export properties of the feed."
 	   (org-end-of-subtree t)
 	   (setq end (point))
 	   (setq content (buffer-substring-no-properties beg end))
-	   (list (list 'content nil
+	   (list (list 'content
+		       (list
+			(cons 'xml:base (file-name-directory content-url)))
 		       (atom-syndication-sanitize
-			(org-atom-absolute-ref
-			 (org-export-region-as-html beg end t 'string)
-			 (file-name-directory content-url)))
+			(org-export-region-as-html beg end t 'string))
 		       'html)))))
      (if (and href_alternate (not (string= href_alternate "")))
 	 (list
@@ -395,8 +395,9 @@ PLIST is the property list with export properties of the feed."
      (list
       (list 'title
 	    (list
-	     (cons 'type 'html))
-	    (org-atom-htmlize-title title (file-name-directory content-url)))
+	     (cons 'type 'html)
+	     (cons 'xml:base (file-name-directory content-url)))
+	    (org-atom-htmlize-title title))
       (list 'updated nil (org-time-string-to-time updated))
       (list 'id nil (concat (if (and org-atom-prefer-urn-uuid
 				     (org-uuidgen-p id))
@@ -443,9 +444,8 @@ Return nil if calling git blame on current file failes."
 	    (when (re-search-forward "^author-time \\([[:digit:]]+\\)")
 	      (seconds-to-time (string-to-number (match-string 1))))))))))
 
-(defun org-atom-htmlize-title (title url)
-  "Return sanitized HTML markup of TITLE.
-If TITLE contains relative links, use URL to make them absolute."
+(defun org-atom-htmlize-title (title)
+  "Return sanitized HTML markup of TITLE."
   (with-temp-buffer
     (let (html)
       (insert title)
@@ -454,13 +454,6 @@ If TITLE contains relative links, use URL to make them absolute."
       (when (string-match "^[^<]*<p>\\([^<\n]+\\)" html)
 	(setq html (match-string 1 html)))
       (atom-syndication-sanitize html))))
-
-(defun org-atom-absolute-ref (html url)
-  "Return HTML with absolute references.
-Relative references are considered to be relative to URL and
-replaced by absolute references."
-  (replace-regexp-in-string "\\(src\\|href\\)=\"\\([^#][^:\"]?+\"\\)"
-			      (concat "\\1=\"" url "\\2\"") html))
 
 ;; add infile options
 (dolist (opt org-atom-infile-options)
