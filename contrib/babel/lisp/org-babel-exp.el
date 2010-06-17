@@ -34,6 +34,7 @@
 (org-export-blocks-add-block '(src org-babel-exp-src-blocks nil))
 (add-to-list 'org-export-interblocks '(src org-babel-exp-inline-src-blocks))
 (add-to-list 'org-export-interblocks '(lob org-babel-exp-lob-one-liners))
+(add-hook 'org-export-blocks-postblock-hook 'org-exp-res/src-name-cleanup)
 
 (defvar org-babel-function-def-export-keyword "function"
   "When exporting a source block function, this keyword will
@@ -78,7 +79,6 @@ none ----- do not display either code or results upon export"
       (goto-char (match-beginning 0))
       (let* ((info (org-babel-get-src-block-info))
 	     (params (third info)))
-	(message "info:%S" info)
 	;; expand noweb references in the original file
 	(setf (second info)
 	      (if (and (cdr (assoc :noweb params))
@@ -114,6 +114,21 @@ options and are taken from `org-babel-defualt-inline-header-args'."
 	(setq end (+ end (- (length replacement) (length (match-string 1)))))
 	(replace-match replacement t t nil 1)))))
 
+(defun org-exp-res/src-name-cleanup ()
+  "Cleanup leftover #+results and #+srcname lines as part of the
+org export cycle.  This should only be called after all block
+processing has taken place."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (org-re-search-forward-unprotected
+	    (concat
+	     "\\("org-babel-source-name-regexp"\\|"org-babel-result-regexp"\\)")
+	    nil t)
+      (delete-region
+       (progn (beginning-of-line) (point))
+       (progn (end-of-line) (+ 1 (point)))))))
+
 (defun org-babel-in-example-or-verbatim ()
   "Return true if the point is currently in an escaped portion of
 an org-mode buffer code which should be treated as normal
@@ -136,17 +151,19 @@ options are taken from `org-babel-default-header-args'."
       (while (and (< (point) end)
 		  (re-search-forward org-babel-lob-one-liner-regexp nil t))
 	(setq replacement
-	      (save-match-data
-		(org-babel-exp-do-export
-		 (list "emacs-lisp" "results"
-		       (org-babel-merge-params
-			org-babel-default-header-args
-			(org-babel-parse-header-arguments
-			 (org-babel-clean-text-properties
-			  (concat ":var results="
-				  (mapconcat #'identity
-					     (org-babel-lob-get-info) " "))))))
-		 'lob)))
+	      (let ((lob-info (org-babel-lob-get-info)))
+		(save-match-data
+		  (org-babel-exp-do-export
+		   (list "emacs-lisp" "results"
+			 (org-babel-merge-params
+			  org-babel-default-header-args
+			  (org-babel-parse-header-arguments
+			   (org-babel-clean-text-properties
+			    (concat ":var results="
+				    (mapconcat #'identity
+					       (butlast lob-info) " ")))))
+			 (car (last lob-info)))
+		   'lob))))
 	(setq end (+ end (- (length replacement) (length (match-string 0)))))
 	(replace-match replacement t t)))))
 

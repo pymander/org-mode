@@ -1984,7 +1984,8 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
   ;; Preserve latex environments
   (goto-char (point-min))
   (while (re-search-forward "^[ \t]*\\\\begin{\\([a-zA-Z]+\\*?\\)}" nil t)
-    (let* ((start (progn (beginning-of-line) (point)))
+    (org-if-unprotected
+     (let* ((start (progn (beginning-of-line) (point)))
 	   (end (and (re-search-forward
 		      (concat "^[ \t]*\\\\end{"
 			      (regexp-quote (match-string 1))
@@ -1992,7 +1993,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 		     (point-at-eol))))
       (if end
 	  (add-text-properties start end '(org-protected t))
-	(goto-char (point-at-eol)))))
+	(goto-char (point-at-eol))))))
 
   ;; Preserve math snippets
 
@@ -2187,21 +2188,20 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
   "Convert plain text lists in current buffer into LaTeX lists."
   (let (res)
     (goto-char (point-min))
-    (while (re-search-forward org-list-beginning-re nil t)
-      (org-if-unprotected
-       (beginning-of-line)
-       (setq res (org-list-to-latex (org-list-parse-list t)
-				    org-export-latex-list-parameters))
-       (while (string-match "^\\(\\\\item[ \t]+\\)\\[@start:\\([0-9]+\\)\\]"
-			    res)
-	 (setq res (replace-match
-		    (concat (format "\\setcounter{enumi}{%d}"
-				    (1- (string-to-number
-					 (match-string 2 res))))
-			    "\n"
-			    (match-string 1 res))
-		    t t res)))
-       (insert res "\n")))))
+    (while (org-re-search-forward-unprotected org-list-beginning-re nil t)
+      (beginning-of-line)
+      (setq res (org-list-to-latex (org-list-parse-list t)
+				   org-export-latex-list-parameters))
+      (while (string-match "^\\(\\\\item[ \t]+\\)\\[@start:\\([0-9]+\\)\\]"
+			   res)
+	(setq res (replace-match
+		   (concat (format "\\setcounter{enumi}{%d}"
+				   (1- (string-to-number
+					(match-string 2 res))))
+			   "\n"
+			   (match-string 1 res))
+		   t t res)))
+      (insert res "\n"))))
 
 (defconst org-latex-entities
  '("\\!"
