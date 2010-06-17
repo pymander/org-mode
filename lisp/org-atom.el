@@ -388,7 +388,7 @@ PLIST is the property list with export properties of the feed."
      (if (and href_via (not (string= href_via "")))
 	 (list
 	  (list 'link nil href_via nil 'via)))
-     (if (and href_related (not (string= href_related "")))
+     (if (and href_related (not (string= (car href_related) "")))
 	 (mapcar (lambda (url)
 		   (list 'link nil url nil 'related))
 		 href_related))
