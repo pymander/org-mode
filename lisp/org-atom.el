@@ -347,8 +347,16 @@ PLIST is the property list with export properties of the feed."
   (let* ((comps (org-heading-components))
 	 (title (nth 4 comps))
 	 (id (org-id-get))
-	 (published (org-entry-get nil org-atom-published-property-name))
-	 (updated (or (org-entry-get nil org-atom-updated-property-name)
+	 (published (org-entry-get
+		     nil
+		     (if (eq org-atom-published-property-name 'timestamp_ia)
+			 "TIMESTAMP_IA"
+		       org-atom-published-property-name)))
+	 (updated (or (org-entry-get
+		       nil
+		       (if (eq org-atom-updated-property-name 'timestamp_ia)
+			   "TIMESTAMP_IA"
+			 org-atom-updated-property-name))
 		      published))
 	 (author (org-entry-get-multivalued-property nil "atom_author"))
 	 (href_alternate (org-entry-get nil "atom_href_alternate"))
@@ -403,24 +411,43 @@ PLIST is the property list with export properties of the feed."
 				     (org-uuidgen-p id))
 				"urn:uuid:" id-prefix) id))))))
 
+(defun org-atom-expand-special-timestamp-property (prop)
+  "Maybe return special property name of PROP.
+PROP is name of a timestamp property for atom:updated or
+atom:published element.  If it is a symbol, expand it to the
+special property name."
+  (cond
+   ((eq prop 'timestamp_ia)
+    "TIMESTAMP_IA")
+   ((symbolp prop)
+    (error "Unknown special timestamp property: %s" prop))
+   (t
+    prop)))
+
 (defun org-atom-prepare-headline (&optional trygit)
   "Prepare headline at point for atom export.
 
 If optional argument TRYGIT is non-nil, try to obtain date for
 headline using git blame."
   (let ((id (org-id-get-create))
-	(dtime (or (org-entry-get nil org-atom-published-property-name)
-		   (org-entry-get nil org-atom-updated-property-name))))
+	(dtime (or (org-entry-get
+		    nil (org-atom-expand-special-timestamp-property
+			 org-atom-published-property-name))
+		   (org-entry-get
+		    nil (org-atom-expand-special-timestamp-property
+			 org-atom-updated-property-name)))))
     (unless dtime
-      (org-entry-put nil org-atom-updated-property-name
-		     (concat "["
-			     (substring
-			      (format-time-string
-			       (cdr org-time-stamp-formats)
-			       (or (if trygit
-				       (org-atom-prepare-headline-try-git))
-				   (current-time)))
-			      1 -1) "]")))))
+      (if (eq org-atom-published-property-name 'timestamp_ia)
+	  (error "Missing inactive timestamp in headline at %s" (point-marker))
+	(org-entry-put nil org-atom-updated-property-name
+		       (concat "["
+			       (substring
+				(format-time-string
+				 (cdr org-time-stamp-formats)
+				 (or (if trygit
+					 (org-atom-prepare-headline-try-git))
+				     (current-time)))
+				1 -1) "]"))))))
 
 (defun org-atom-prepare-headline-try-git ()
   "Return date when headline at point was last modified.
