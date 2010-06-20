@@ -69,13 +69,23 @@ Each element is a list of 3 items:
   :group 'org-export-atom)
 
 (defcustom org-atom-published-property-name "atom_published"
-  "Name of property for publication date."
-  :type 'string
+  "Name of property for publication date.
+Either a string with the property name or the symbol
+timestamp_ia.  If it is this symbol, the exporter uses the first
+inactive timestamp in an entry headline."
+  :type '(choice
+	  (string :tag "Headline property" :value "atom_published")
+	  (const :tag "First inactive timestamp" timestamp_ia))
   :group 'org-export-atom)
 
 (defcustom org-atom-updated-property-name "atom_updated"
-  "Name of property for date when entry was updated."
-  :type 'string
+  "Name of property for date when entry was updated.
+Either a string with the property name or the symbol
+timestamp_ia.  If it is this symbol, the exporter uses the first
+inactive timestamp in an entry headline."
+  :type '(choice
+	  (string :tag "Headline property" :value "atom_updated")
+	  (const :tag "First inactive timestamp" timestamp_ia))
   :group 'org-export-atom)
 
 (defcustom org-atom-publish-content nil
