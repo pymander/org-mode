@@ -359,14 +359,12 @@ PLIST is the property list with export properties of the feed."
 	 (id (org-id-get))
 	 (published (org-entry-get
 		     nil
-		     (if (eq org-atom-published-property-name 'timestamp_ia)
-			 "TIMESTAMP_IA"
-		       org-atom-published-property-name)))
+		     (org-atom-expand-special-timestamp-property
+		      org-atom-published-property-name)))
 	 (updated (or (org-entry-get
 		       nil
-		       (if (eq org-atom-updated-property-name 'timestamp_ia)
-			   "TIMESTAMP_IA"
-			 org-atom-updated-property-name))
+		       (org-atom-expand-special-timestamp-property
+			org-atom-updated-property-name))
 		      published))
 	 (author (org-entry-get-multivalued-property nil "atom_author"))
 	 (href_alternate (org-entry-get nil "atom_href_alternate"))
