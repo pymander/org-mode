@@ -165,10 +165,10 @@ When PUB-DIR is set, use this as the publishing directory."
 		      (org-atom-prepare-headline atom-try-git))
 		    atom-map-entries)) 0))
       ;; check mandatory options
-      (when (string= atom-id "")
-	(error "Missing ID for feed"))
       (when (and (not body-only) (string= atom-url ""))
 	(error "Missing url for feed"))
+      (when (string= atom-id "") (setq atom-id atom-url))
+
       (unless to-buffer
 	(setq to-buffer (if atom-file
 			    (or (find-buffer-visiting atom-file)
