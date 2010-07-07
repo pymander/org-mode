@@ -262,7 +262,8 @@ PROJECT and publishes them as one single atom feed."
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match "/$" pub-url) "" "/")
 			   (file-relative-name sitemap-filename dir)))
-	 (atom-id (plist-get project-plist :feed-id))
+	 (atom-id (or (plist-get project-plist :feed-id)
+		      atom-url))
 	 (visiting (find-buffer-visiting sitemap-filename))
 	 file sitemap-buffer)
     ;; maybe adjust publication url
