@@ -56,6 +56,7 @@
 (declare-function org-datetree-find-date-create "org-datetree"
 		  (DATE &optional KEEP-RESTRICTION))
 (declare-function org-table-get-specials "org-table" ())
+(declare-function org-table-goto-line "org-table" (N))
 (defvar org-remember-default-headline)
 (defvar org-remember-templates)
 (defvar org-table-hlines)
@@ -144,7 +145,13 @@ target       Specification of where the captured item should be placed.
 
 template     The template for creating the capture item.  If you leave this
              empty, an appropriate default template will be used.  See below
-             for more details.
+             for more details.  Instead of a string, this may also be one of
+
+                 (file \"/path/to/template-file\")
+                 (function function-returning-the-template)
+
+             in order to get a template from a file, or dynamically
+             from a function.
 
 The rest of the entry is a property list of additional options.  Recognized
 properties are:
@@ -273,7 +280,14 @@ calendar           |  %:type %:date"
 		   (list :tag "Function"
 			 (const :format "" function)
 			 (sexp :tag "  Function")))
-	   (string :tag "Template (opt) ")
+	   (choice :tag "Template"
+		   (string)
+		   (list :tag "File"
+			 (const :format "" file-contents)
+			 (file :tag "Template file"))
+		   (list :tag "Function"
+			 (const :format "" function)
+			 (file :tag "Template function")))
 	   (plist :inline t
 		  ;; Give the most common options as checkboxes
 		  :options (((const :format "%v " :prepend) (const t))
@@ -335,7 +349,7 @@ for a Remember buffer.")
 (defun org-capture (&optional goto keys)
   "Capture something.
 
-This will let you select a template from org-capture-templates, and then
+This will let you select a template from `org-capture-templates', and then
 file new captured information.  The text is immediately inserted at the
 target location, and an indirect buffer is shown where you can edit it.
 Pressing `C-c C-c' brings you back to the previous state of Emacs,
@@ -371,6 +385,7 @@ bypassed."
 	(error "Abort"))
        (t
 	(org-capture-set-plist entry)
+	(org-capture-get-template)
 	(org-capture-put :original-buffer orig-buf :annotation annotation
 			 :initial initial)
 	(org-capture-put :default-time
@@ -409,6 +424,25 @@ bypassed."
 		      (org-set-local 'org-capture-clock-was-started t))
 		  (error
 		   "Could not start the clock in this capture buffer")))))))))))
+
+
+(defun org-capture-get-template ()
+  "Get the template from a file or a function if necessary."
+  (let ((txt (org-capture-get :template)) file)
+    (cond
+     ((and (listp txt) (eq (car txt) 'file))
+      (if (file-exists-p
+	   (setq file (expand-file-name (nth 1 txt) org-directory)))
+	  (setq txt (org-file-contents file))
+	(setq txt (format "* Template file %s not found" (nth 1 txt)))))
+     ((and (listp txt) (eq (car txt) 'function))
+      (if (fboundp (nth 1 txt))
+	  (setq txt (funcall (nth 1 txt)))
+	(setq txt (format "* Template function %s not found" (nth 1 txt)))))
+     ((not txt) (setq txt ""))
+     ((stringp txt))
+     (t (setq txt "* Invalid capture template")))
+    (org-capture-put :template txt)))
 
 (defun org-capture-finalize ()
   "Finalize the capture process."
@@ -453,6 +487,7 @@ bypassed."
 			 '(entry item checkitem plain)))
 	(save-excursion
 	  (goto-char end)
+	  (or (bolp) (newline))
 	  (org-capture-empty-lines-after
 	   (or (org-capture-get :empty-lines 'local) 0))))
       ;; Postprocessing:  Update Statistics cookies, do the sorting
@@ -499,7 +534,9 @@ already gone."
   (unless (eq (org-capture-get :type 'local) 'entry)
     (error
      "Refiling from a capture buffer makes only sense for `entry'-type templates"))
-  (let ((pos (point)) (base (buffer-base-buffer (current-buffer))))
+  (let ((pos (point))
+	(base (buffer-base-buffer (current-buffer)))
+	(org-refile-for-capture t))
     (org-capture-finalize)
     (save-window-excursion
       (with-current-buffer (or base (current-buffer))
@@ -507,7 +544,16 @@ already gone."
 	  (save-restriction
 	    (widen)
 	    (goto-char pos)
-	    (call-interactively 'org-refile)))))))
+	    (call-interactively 'org-refile)
+	    (when (and (boundp 'bookmark-alist)
+		       (assoc "org-capture-last-stored" bookmark-alist))
+	      (if (assoc "org-refile-last-stored" bookmark-alist)
+		  (setcdr (assoc "org-refile-last-stored" bookmark-alist)
+			  (cdr (assoc "org-refile-last-stored" bookmark-alist)))
+		(push (cons "org-capture-last-stored"
+			    (cdr (assoc "org-refile-last-stored"
+					bookmark-alist)))
+		      bookmark-alist)))))))))
 
 (defun org-capture-kill ()
   "Abort the current capture process."
@@ -566,9 +612,10 @@ already gone."
 	(goto-char (point-min))
 	(if (re-search-forward (nth 2 target) nil t)
 	    (progn
-	      (goto-char (match-beginning 0))
+	      (goto-char (if (org-capture-get :prepend)
+			     (match-beginning 0) (match-end 0)))
+	      (org-capture-put :exact-position (point))
 	      (setq target-entry-p (and (org-mode-p) (org-at-heading-p))))
-	  (kill-buffer (current-buffer))
 	  (error "No match for target regexp in file %s" (nth 1 target))))
 
        ((eq (car target) 'file+datetree)
@@ -586,7 +633,13 @@ already gone."
 
        ((eq (car target) 'file+function)
 	(set-buffer (org-capture-target-buffer (nth 1 target)))
+	(funcall (nth 2 target))
+	(org-capture-put :exact-position (point))
+	(setq target-entry-p (and (org-mode-p) (org-at-heading-p))))
+
+       ((eq (car target) 'function)
 	(funcall (nth 1 target))
+	(org-capture-put :exact-position (point))
 	(setq target-entry-p (and (org-mode-p) (org-at-heading-p))))
 
        ((eq (car target) 'clock)
@@ -637,8 +690,11 @@ already gone."
   (let* ((txt (org-capture-get :template))
 	 (reversed (org-capture-get :prepend))
 	 (target-entry-p (org-capture-get :target-entry-p))
-	 level beg end)
+	 level beg end file)
+
     (cond
+     ((org-capture-get :exact-position)
+      (goto-char (org-capture-get :exact-position)))
      ((not target-entry-p)
       ;; Insert as top-level entry, either at beginning or at end of file
       (setq level 1)
@@ -673,8 +729,11 @@ already gone."
   "Place the template as a new plain list item."
   (let* ((txt (org-capture-get :template))
 	 (target-entry-p (org-capture-get :target-entry-p))
-	 ind beg end)
+	 (ind 0)
+	 beg end)
     (cond
+     ((org-capture-get :exact-position)
+      (goto-char (org-capture-get :exact-position)))
      ((not target-entry-p)
       ;; Insert as top-level entry, either at beginning or at end of file
       (setq beg (point-min) end (point-max)))
@@ -730,6 +789,8 @@ already gone."
 	 (table-line-pos (org-capture-get :table-line-pos))
 	 ind beg end)
     (cond
+     ((org-capture-get :exact-position)
+      (goto-char (org-capture-get :exact-position)))
      ((not target-entry-p)
       ;; Table is not necessarily under a heading
       (setq beg (point-min) end (point-max)))
@@ -803,7 +864,10 @@ already gone."
   "Place the template plainly."
   (let* ((txt (org-capture-get :template))
 	 beg end)
-    (goto-char (if (org-capture-get :prepend) (point-min) (point-max)))
+    (goto-char (cond
+		((org-capture-get :exact-position))
+		((org-capture-get :prepend) (point-min))
+		(t (point-max))))
     (or (bolp) (newline))
     (org-capture-empty-lines-before)
     (setq beg (point))
@@ -1182,8 +1246,9 @@ The template may still contain \"%?\" for cursor positioning."
 	   (char
 	    ;; These are the date/time related ones
 	    (setq org-time-was-given (equal (upcase char) char))
-	    (setq time (org-read-date (equal (upcase char) "U") t nil
+	    (setq time (org-read-date (equal (upcase char) char) t nil
 				      prompt))
+	    (if (equal (upcase char) char) (setq org-time-was-given t))
 	    (org-insert-time-stamp time org-time-was-given
 				   (member char '("u" "U"))
 				   nil nil (list org-end-time-was-given)))

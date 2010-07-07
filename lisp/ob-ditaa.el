@@ -46,6 +46,7 @@
 (defun org-babel-expand-body:ditaa (body params &optional processed-params)
   "Expand BODY according to PARAMS, return the expanded body." body)
 
+(defvar org-ditaa-jar-path)
 (defun org-babel-execute:ditaa (body params)
   "Execute a block of Ditaa code with org-babel.  This function is
 called by `org-babel-execute-src-block'."
@@ -55,7 +56,7 @@ called by `org-babel-execute-src-block'."
         (cmdline (cdr (assoc :cmdline params)))
         (in-file (make-temp-file "org-babel-ditaa")))
     (unless (file-exists-p org-ditaa-jar-path)
-      (error (format "Could not find ditaa.jar at %s" org-ditaa-jar-path)))
+      (error "Could not find ditaa.jar at %s" org-ditaa-jar-path))
     (with-temp-file in-file (insert body))
     (message (concat "java -jar " org-ditaa-jar-path " " cmdline " " in-file " " out-file))
     (shell-command (concat "java -jar " org-ditaa-jar-path " " cmdline " " in-file " " out-file))

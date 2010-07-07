@@ -119,7 +119,63 @@
 (require 'ob-tangle)
 (require 'ob-comint)
 (require 'ob-keys)
-(require 'ob-emacs-lisp)
+
+;; load languages based on value of `org-babel-load-languages'
+(defvar org-babel-load-languages)
+(defun org-babel-do-load-languages (sym value)
+  "Load the languages defined in `org-babel-load-languages'."
+  (set-default sym value)
+  (mapc (lambda (pair)
+	  (let ((active (cdr pair)) (lang (symbol-name (car pair))))
+	    (if active
+		(progn
+		  (require (intern (concat "ob-" lang))))
+	      (progn
+		(funcall 'fmakunbound
+			 (intern (concat "org-babel-execute:" lang)))
+		(funcall 'fmakunbound
+			 (intern (concat "org-babel-expand-body:" lang)))))))
+	org-babel-load-languages))
+
+(defcustom org-babel-load-languages '((emacs-lisp . t))
+  "Languages which can be evaluated in Org-mode buffers.  This
+list can be used to load support for any of the languages below,
+note that each language will depend on a different set of system
+executables and/or Emacs modes.  When a language is \"loaded\",
+then code blocks in that language can be evaluated with
+`org-babel-execute-src-block' bound by default to C-c C-c (note
+the `org-babel-no-eval-on-ctrl-c-ctrl-c' variable can be set to
+remove code block evaluation from the C-c C-c keybinding.  By
+default only Emacs Lisp (which has no requirements) is loaded."
+  :group 'org-babel
+  :set 'org-babel-do-load-languages
+  :type '(alist :tag "Babel Languages"
+		:key-type
+		(choice
+		 (const :tag "C" C)
+		 (const :tag "R" R)
+		 (const :tag "Asymptote" asymptote)
+		 (const :tag "Clojure" clojure)
+		 (const :tag "CSS" css)
+		 (const :tag "Ditaa" ditaa)
+		 (const :tag "Dot" dot)
+		 (const :tag "Emacs Lisp" emacs-lisp)
+		 (const :tag "Gnuplot" gnuplot)
+		 (const :tag "Haskell" haskell)
+		 (const :tag "Latex" latex)
+		 (const :tag "Matlab" matlab)
+		 (const :tag "Mscgen" mscgen)
+		 (const :tag "Ocaml" ocaml)
+		 (const :tag "Octave" octave)
+		 (const :tag "Perl" perl)
+		 (const :tag "Python" python)
+		 (const :tag "Ruby" ruby)
+		 (const :tag "Sass" sass)
+		 (const :tag "Screen" screen)
+		 (const :tag "Shell Script" sh)
+		 (const :tag "Sql" sql)
+		 (const :tag "Sqlite" sqlite))
+		:value-type (boolean :tag "Activate" :value t)))
 
 ;;;; Customization variables
 (defcustom org-clone-delete-id nil
@@ -1386,7 +1442,7 @@ Changing this requires a restart of Emacs to work correctly."
 
 (defcustom org-link-frame-setup
   '((vm . vm-visit-folder-other-frame)
-    (gnus . gnus-other-frame)
+    (gnus . org-gnus-no-new-news)
     (file . find-file-other-window)
     (wl . wl-other-frame))
   "Setup the frame configuration for following links.
@@ -1671,10 +1727,8 @@ following situations:
 
 (defcustom org-default-notes-file (convert-standard-filename "~/.notes")
   "Default target for storing notes.
-Used by the hooks for remember.el.  This can be a string, or nil to mean
-the value of `remember-data-file'.
-You can set this on a per-template basis with the variable
-`org-remember-templates'."
+Used as a fall back file for org-remember.el and org-capture.el, for
+templates that do not specify a target file."
   :group 'org-refile
   :group 'org-remember
   :type '(choice
@@ -3518,7 +3572,9 @@ outside the table.")
    org-table-rotate-recalc-marks org-table-sort-lines org-table-sum
    org-table-toggle-coordinate-overlays
    org-table-toggle-formula-debugger org-table-wrap-region
-   orgtbl-mode turn-on-orgtbl org-table-to-lisp)))
+   orgtbl-mode turn-on-orgtbl org-table-to-lisp
+   orgtbl-to-generic orgtbl-to-tsv orgtbl-to-csv orgtbl-to-latex
+   orgtbl-to-orgtbl orgtbl-to-html orgtbl-to-texinfo)))
 
 (defun org-at-table-p (&optional table-type)
   "Return t if the cursor is inside an org-type table.
@@ -9966,6 +10022,7 @@ such as the file name."
 Note that this is still *before* the stuff will be removed from
 the *old* location.")
 
+(defvar org-capture-last-stored-marker)
 (defun org-refile (&optional goto default-buffer rfloc)
   "Move the entry at point to another heading.
 The list of target headings is compiled using the information in
@@ -10086,6 +10143,11 @@ This can be done with a 0 prefix: `C-0 C-c C-w'"
 		      (save-excursion (org-add-log-note))))
 		  (and org-auto-align-tags (org-set-tags nil t))
 		  (bookmark-set "org-refile-last-stored")
+		  ;; If we are refiling for capture, make sure that the
+		  ;; last-capture pointers point here
+		  (when (org-bound-and-true-p org-refile-for-capture)
+		    (bookmark-set "org-refile-last-stored")
+		    (move-marker org-capture-last-stored-marker (point)))
 		  (if (fboundp 'deactivate-mark) (deactivate-mark))
 		  (run-hooks 'org-after-refile-insert-hook))))
 	    (if regionp
@@ -10683,7 +10745,7 @@ For calling through lisp, arg is also interpreted in the following way:
 	    (looking-at " *"))
 	(let* ((match-data (match-data))
 	       (startpos (point-at-bol))
-	       (logging (save-match-data (org-entry-get nil "LOGGING" t)))
+	       (logging (save-match-data (org-entry-get nil "LOGGING" t t)))
 	       (org-log-done org-log-done)
 	       (org-log-repeat org-log-repeat)
 	       (org-todo-log-states org-todo-log-states)
@@ -13398,7 +13460,7 @@ when a \"nil\" value can supercede a non-nil value higher up the hierarchy."
     (if (and inherit (if (eq inherit 'selective)
 			 (org-property-inherit-p property)
 		       t))
-	(org-entry-get-with-inheritance property)
+	(org-entry-get-with-inheritance property literal-nil)
       (if (member property org-special-properties)
 	  ;; We need a special property.  Use `org-entry-properties' to
 	  ;; retrieve it, but specify the wanted property
@@ -13508,8 +13570,12 @@ no match, the marker will point nowhere.
 Note that also `org-entry-get' calls this function, if the INHERIT flag
 is set.")
 
-(defun org-entry-get-with-inheritance (property)
-  "Get entry property, and search higher levels if not present."
+(defun org-entry-get-with-inheritance (property &optional literal-nil)
+  "Get entry property, and search higher levels if not present.
+The search will stop at the first ancestor which has the property defined.
+If the value found is \"nil\", return nil to show that the property
+should be considered as undefined (this is the meaning of nil here).
+However, if LITERAL-NIL is set, return the string value \"nil\" instead."
   (move-marker org-entry-property-inherited-from nil)
   (let (tmp)
     (save-excursion
@@ -13522,11 +13588,11 @@ is set.")
 	      (move-marker org-entry-property-inherited-from (point))
 	      (throw 'ex tmp))
 	    (or (org-up-heading-safe) (throw 'ex nil)))))
-      (org-not-nil
-       (or tmp
-	   (cdr (assoc property org-file-properties))
-	   (cdr (assoc property org-global-properties))
-	   (cdr (assoc property org-global-properties-fixed)))))))
+      (setq tmp (or tmp
+		    (cdr (assoc property org-file-properties))
+		    (cdr (assoc property org-global-properties))
+		    (cdr (assoc property org-global-properties-fixed))))
+      (if literal-nil tmp (org-not-nil tmp)))))
 
 (defvar org-property-changed-functions nil
   "Hook called when the value of a property has changed.
@@ -15235,13 +15301,13 @@ changes from another.  I believe the procedure must be like this:
 ;;;; Agenda files
 
 ;;;###autoload
-(defun org-iswitchb (&optional arg)
-  "Use `org-icompleting-read' to prompt for an Org buffer to switch to.
+(defun org-switchb (&optional arg)
+  "Switch between Org buffers.
 With a prefix argument, restrict available to files.
 With two prefix arguments, restrict available buffers to agenda files.
 
-This will use iswitchb for buffer name completion, unless
-`org-completion-use-ido' is non-nil, to select ido completion."
+Defaults to `iswitchb' for buffer name completion.
+Set `org-completion-use-ido' to make it use ido instead."
   (interactive "P")
   (let ((blist (cond ((equal arg '(4))  (org-buffer-list 'files))
                      ((equal arg '(16)) (org-buffer-list 'agenda))
@@ -15252,11 +15318,14 @@ This will use iswitchb for buffer name completion, unless
       (setq org-completion-use-iswitchb t))
     (switch-to-buffer
      (org-icompleting-read "Org buffer: "
-                              (mapcar 'list (mapcar 'buffer-name blist))
-                              nil t))))
+			   (mapcar 'list (mapcar 'buffer-name blist))
+			   nil t))))
 
+;;; Define some older names previously used for this functionality
 ;;;###autoload
-(defalias 'org-ido-switchb 'org-iswitchb)
+(defalias 'org-ido-switchb 'org-switchb)
+;;;###autoload
+(defalias 'org-iswitchb 'org-switchb)
 
 (defun org-buffer-list (&optional predicate exclude-tmp)
   "Return a list of Org buffers.
@@ -17015,7 +17084,13 @@ This command does many different things, depending on context:
 - If the cursor is on a numbered item in a plain list, renumber the
   ordered list.
 
-- If the cursor is on a checkbox, toggle it."
+- If the cursor is on a checkbox, toggle it.
+
+- If the cursor is on a code block, evaluate it.  The variable
+  `org-confirm-babel-evaluate' can be used to control prompting
+  before code block evaluation, by default every code block
+  evaluation requires confirmation.  Code block evaluation can be
+  inhibited by setting `org-babel-no-eval-on-ctrl-c-ctrl-c'."
   (interactive "P")
   (let  ((org-enable-table-editor t))
     (cond

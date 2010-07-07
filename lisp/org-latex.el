@@ -148,6 +148,7 @@ class, you can use the following macro-like placeholders.
  [NO-PACKAGES]           do not include the packages
  [EXTRA]                 the stuff from #+LaTeX_HEADER
  [NO-EXTRA]              do not include #+LaTeX_HEADER stuff
+ [BEAMER-HEADER-EXTRA]   the beamer extra headers
 
 So a header like
 
@@ -412,6 +413,11 @@ and `org-export-with-tags' instead."
 
 (defcustom org-export-latex-image-default-option "width=10em"
   "Default option for images."
+  :group 'org-export-latex
+  :type 'string)
+
+(defcustom org-export-latex-tabular-environment "tabular"
+  "Default environment used to build tables."
   :group 'org-export-latex
   :type 'string)
 
@@ -1576,7 +1582,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
              (org-table-last-column-widths (copy-sequence
                                             org-table-last-column-widths))
              fnum fields line lines olines gr colgropen line-fmt align
-             caption label attr floatp longtblp)
+             caption shortn label attr floatp longtblp)
         (if org-export-latex-tables-verbatim
             (let* ((tbl (concat "\\begin{verbatim}\n" raw-table
                                 "\\end{verbatim}\n")))
@@ -1585,6 +1591,8 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
           (progn
             (setq caption (org-find-text-property-in-string
                            'org-caption raw-table)
+		  shortn (org-find-text-property-in-string
+			  'org-caption-shortn raw-table)
                   attr (org-find-text-property-in-string
                         'org-attributes raw-table)
                   label (org-find-text-property-in-string
@@ -1652,13 +1660,15 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
                           (if floatp "\\begin{table}[htb]\n"))
                         (if floatp
                             (format
-                             "\\caption{%s%s}"
-                             (if label (concat "\\\label{" label "}") "")
+                             "\\caption%s{%s}"
+                             (if shortn (concat "[" shortn "]") "")
                              (or caption "")))
                         (if (and longtblp caption) "\\\\\n" "\n")
                         (if (and org-export-latex-tables-centered (not longtblp))
                             "\\begin{center}\n")
-                        (if (not longtblp) (concat "\\begin{tabular}{" align "}\n"))
+                        (if (not longtblp)
+			    (format "\\begin{%s}{%s}\n"
+				    org-export-latex-tabular-environment align))
                         (orgtbl-to-latex
                          lines
                          `(:tstart nil :tend nil
@@ -1670,7 +1680,9 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 \\endfoot
 \\endlastfoot" (length org-table-last-alignment))
                                              nil)))
-                        (if (not longtblp) (concat "\n\\end{tabular}"))
+                        (if (not longtblp)
+			    (format "\n\\end{%s}"
+				    org-export-latex-tabular-environment))
                         (if longtblp "\n" (if org-export-latex-tables-centered
                                               "\n\\end{center}\n" "\n"))
                         (if longtblp
@@ -1680,10 +1692,11 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 
 (defun org-export-latex-convert-table.el-table ()
   "Replace table.el table at point with LaTeX code."
-  (let (tbl caption label line floatp attr align rmlines)
+  (let (tbl caption shortn label line floatp attr align rmlines)
     (setq line (buffer-substring (point-at-bol) (point-at-eol))
 	  label (org-get-text-property-any 0 'org-label line)
 	  caption (org-get-text-property-any 0 'org-caption line)
+	  shortn (org-get-text-property-any 0 'org-caption-shortn line)
 	  attr (org-get-text-property-any 0 'org-attributes line)
 	  align (and attr (stringp attr)
 		     (string-match "\\<align=\\([^ \t\n\r,]+\\)" attr)
@@ -1721,7 +1734,8 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
       (setq tbl (concat "\\begin{center}\n" tbl "\\end{center}")))
     (when floatp
       (setq tbl (concat "\\begin{table}\n"
-			(format "\\caption{%s%s}\n"
+			(format "\\caption%s{%s%s}\n"
+				(if shortn (format "[%s]" shortn) "")
 				(if label (format "\\label{%s}" label) "")
 				(or caption ""))
 			tbl
@@ -1822,6 +1836,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 			  "file")))
 	    (coderefp (equal type "coderef"))
 	    (caption (org-find-text-property-in-string 'org-caption raw-path))
+	    (shortn (org-find-text-property-in-string 'org-caption-shortn raw-path))
 	    (attr (or (org-find-text-property-in-string 'org-attributes raw-path)
 		      (plist-get org-export-latex-options-plist :latex-image-options)))
 	    (label (org-find-text-property-in-string 'org-label raw-path))
@@ -1859,7 +1874,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 		   (plist-get org-export-latex-options-plist :inline-images))
 	      ;; OK, we need to inline an image
 	      (insert
-	       (org-export-latex-format-image raw-path caption label attr)))
+	       (org-export-latex-format-image raw-path caption label attr shortn)))
 	     (coderefp
 	      (insert (format
 		       (org-export-get-coderef-format path desc)
@@ -1889,7 +1904,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 	     (t (insert "\\texttt{" desc "}")))))))
 
 
-(defun org-export-latex-format-image (path caption label attr)
+(defun org-export-latex-format-image (path caption label attr &optional shortn)
   "Format the image element, depending on user settings."
   (let (ind floatp wrapp multicolumnp placement figenv)
     (setq floatp (or caption label))
@@ -1922,7 +1937,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 	   (wrapp "\\begin{wrapfigure}%placement
 \\centering
 \\includegraphics[%attr]{%path}
-\\caption{%labelcmd%caption}
+\\caption%shortn{%labelcmd%caption}
 \\end{wrapfigure}")
 	   (multicolumnp "\\begin{figure*}%placement
 \\centering
@@ -1953,6 +1968,7 @@ The conversion is made depending of STRING-BEFORE and STRING-AFTER."
 			 (expand-file-name path)
 		       path))
 	       (cons "attr" attr)
+	       (cons "shortn" (if shortn (format "[%s]" shortn) ""))
 	       (cons "labelcmd" (if label (format "\\label{%s}"
 						  label)""))
 	       (cons "caption" (or caption ""))
