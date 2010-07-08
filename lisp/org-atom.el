@@ -257,7 +257,6 @@ PROJECT and publishes them as one single atom feed."
 			    dir (or (plist-get project-plist :sitemap-file)
 				    "sitemap." org-atom-feed-extension)))
 	 (sitemap-title (or (plist-get project-plist :sitemap-title)
-			    (plist-get project-plist :feed-title)
 			    (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
 	 (atom-url (concat pub-url (if (string-match "/$" pub-url) "" "/")
@@ -269,9 +268,7 @@ PROJECT and publishes them as one single atom feed."
     ;; maybe adjust publication url
     (unless (and pub-url (string-match "/$" pub-url))
       (setq pub-url (concat pub-url "/")))
-    (setq project-plist (plist-put project-plist :feed-title sitemap-title)
-	  project-plist (plist-put
-			 project-plist :feed-description sitemap-description))
+    (setq project-plist (plist-put project-plist :feed-title sitemap-title))
     (with-current-buffer (setq sitemap-buffer
 			       (or visiting (find-file sitemap-filename)))
       (erase-buffer)
@@ -292,17 +289,18 @@ PROJECT and publishes them as one single atom feed."
 	      (while (setq file (pop files))
 		(let* ((entries-plist (org-combine-plists
 				       project-plist
-				       (plist-put nil :feed-content-url
-						  (concat
-						   pub-url
-						   (file-relative-name
-						    (file-name-sans-extension
-						     file) dir)
-						   (or
-						    (plist-get
-						     project-plist
-						     :feed-content-extension)
-						    ".html")))))
+				       (plist-put
+					nil :feed-content-url
+					(concat
+					 pub-url
+					 (file-relative-name
+					  (file-name-sans-extension
+					   file) dir)
+					 (or
+					  (plist-get
+					   project-plist
+					   :html-extension)
+					  org-export-html-extension)))))
 		       (visiting-file (find-buffer-visiting file))
 		       entries)
 		  (with-current-buffer (or visiting-file
