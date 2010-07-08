@@ -31,6 +31,8 @@
 
 (declare-function atom-syndication-element-feed "ext:atom-syndication"
 		  (attr elements))
+(declare-function atom-syndication-element-entry "ext:atom-syndication"
+		  (attr elements))
 (declare-function atom-syndication-sanitize "ext:atom-syndication"
 		  (text))
 
@@ -202,11 +204,15 @@ When PUB-DIR is set, use this as the publishing directory."
 				     (list (if atom-publish-email
 					       (list 'author nil author email)
 					     (list 'author nil author))))
-				   e)))))
+				   e)) entries)))
+	(print (format "DEBUG: %s" (car entries)))
 	(setq feed
 	      (if body-only
-		  (mapconcat 'atom-syndication-element-entry entries "")
-		(atom-syndication-element-feed nil
+		  (mapconcat (lambda (e)
+			       (atom-syndication-element-entry
+				nil e)) entries "")
+		(atom-syndication-element-feed
+		 nil
 		 (append
 		  (unless (string= description "")
 		    (list (list 'subtitle nil (org-trim description))))
@@ -246,7 +252,7 @@ This function collects all feed entries of all files in set
 PROJECT and publishes them as one single atom feed."
   (let* ((project-plist (cdr project))
 	 (dir (file-name-as-directory
-	       (plist-get project-plist :base-directory)))
+	       (plist-get project-plist :publishing-directory)))
 	 (exclude-regexp (plist-get project-plist :exclude))
 	 (include-files (plist-get project-plist :include))
 	 (files (append
@@ -255,7 +261,8 @@ PROJECT and publishes them as one single atom feed."
 		  (org-publish-get-base-files project exclude-regexp))))
 	 (sitemap-filename (concat
 			    dir (or (plist-get project-plist :sitemap-file)
-				    "sitemap." org-atom-feed-extension)))
+				    (concat
+				     "sitemap." org-atom-feed-extension))))
 	 (sitemap-title (or (plist-get project-plist :sitemap-title)
 			    (concat "Index for project " (car project))))
 	 (pub-url (plist-get project-plist :publishing-url))
@@ -280,35 +287,35 @@ PROJECT and publishes them as one single atom feed."
 			 (list 'title nil sitemap-title)
 			 (list 'id nil (concat
 					(if (and org-atom-prefer-urn-uuid
-						 (org-uuidgen-p
-						  atom-id)
-						 "urn:uuid:" "") atom-id))
-			       (list 'updated nil (current-time))
-			       (list 'link nil atom-url nil "self"))))))
-	      (re-search-backward "</feed>")
-	      (while (setq file (pop files))
-		(let* ((entries-plist (org-combine-plists
-				       project-plist
-				       (plist-put
-					nil :feed-content-url
-					(concat
-					 pub-url
-					 (file-relative-name
-					  (file-name-sans-extension
-					   file) dir)
-					 (or
-					  (plist-get
-					   project-plist
-					   :html-extension)
-					  org-export-html-extension)))))
-		       (visiting-file (find-buffer-visiting file))
-		       entries)
-		  (with-current-buffer (or visiting-file
-					   (find-file-noselect file))
-		    (setq entries (org-export-as-atom entries-plist 'string t))
-		    (unless visiting-file (kill-buffer)))
-		  (when entries (insert entries))))
-	      (save-buffer))
+						 (org-uuidgen-p atom-id))
+					    "urn:uuid:" "") atom-id))
+			 (list 'updated nil (current-time))
+			 (list 'link nil atom-url nil "self"))))))
+      (re-search-backward "</feed>")
+      (while (setq file (pop files))
+	(let* ((entries-plist (org-combine-plists
+			       project-plist
+			       (plist-put
+				nil :feed-content-url
+				(concat
+				 pub-url
+				 (file-relative-name
+				  (file-name-sans-extension
+				   file) dir)
+				 "."
+				 (or
+				  (plist-get
+				   project-plist
+				   :html-extension)
+				  org-export-html-extension)))))
+	       (visiting-file (find-buffer-visiting file))
+	       entries)
+	  (with-current-buffer (or visiting-file
+				   (find-file-noselect file))
+	    (setq entries (org-export-as-atom entries-plist 'string t))
+	    (unless visiting-file (kill-buffer)))
+	  (when entries (insert entries))))
+      (save-buffer)
       (or visiting (kill-buffer sitemap-buffer)))))
 
 ;;;###autoload
