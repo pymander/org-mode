@@ -385,7 +385,7 @@ for example using customize, or with something like
     (shell-script "bash")
     (gnuplot "Gnuplot")
     (ocaml "Caml") (caml "Caml")
-    (sql "SQL"))
+    (sql "SQL") (sqlite "sql"))
   "Alist mapping languages to their listing language counterpart.
 The key is a symbol, the major mode symbol without the \"-mode\".
 The value is the string that should be inserted as the language parameter
@@ -1221,9 +1221,16 @@ If END is non-nil, it is the end of the region."
 	    :timestamps (plist-get opt-plist :timestamps)
 	    :footnotes (plist-get opt-plist :footnotes)))
 	(org-unmodified
-	 (let ((inhibit-read-only t))
-	   (add-text-properties pt (max pt (1- end))
-				'(:org-license-to-kill t))))))))
+	 (let ((inhibit-read-only t)
+	       (limit (max pt (1- end))))
+	   (add-text-properties pt limit
+				'(:org-license-to-kill t))
+	   (save-excursion
+	     (goto-char pt)
+	     (while (re-search-forward "^[ \t]*#+.*\n?" limit t)
+	       (remove-text-properties (match-beginning 0) (match-end 0)
+				'(:org-license-to-kill t))))))))))
+	       
 
 (defvar org-export-latex-header-defs nil
   "The header definitions that might be used in the LaTeX body.")

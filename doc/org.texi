@@ -434,7 +434,7 @@ Using header arguments
 Specific header arguments
 
 * var::				Pass arguments to code blocks
-* results::			Specify the type of results and how they will be collectd and handled
+* results::			Specify the type of results and how they will be collected and handled
 * file::			Specify a path for file output
 * dir and remote execution::	Specify the default directory for code block execution
 * exports::			Export code and/or results
@@ -451,7 +451,7 @@ Specific header arguments
 Miscellaneous
 
 * Completion::			M-TAB knows what you need
-* Speed keys::			Electic commands at the beginning of a headline
+* Speed keys::			Electric commands at the beginning of a headline
 * Code evaluation security::	Org mode files evaluate inline code
 * Customization::		Adapting Org to your taste
 * In-buffer settings::		Overview of the #+KEYWORDS
@@ -1521,7 +1521,7 @@ LaTeX}).  Here are the valid references:
 @table @code
 @item [1]
 A plain numeric footnote marker.  Compatible with @file{footnote.el}, but not
-recommended because somthing like @samp{[1]} could easily be part of a code
+recommended because something like @samp{[1]} could easily be part of a code
 snippet.
 @item [fn:name]
 A named footnote reference, where @code{name} is a unique label word, or, for
@@ -2643,7 +2643,7 @@ functions.
 @node Org-Plot,  , The spreadsheet, Tables
 @section Org-Plot
 @cindex graph, in tables
-@cindex plot tables using gnuplot
+@cindex plot tables using Gnuplot
 @cindex #+PLOT
 
 Org-Plot can produce 2D and 3D graphs of information stored in org tables
@@ -3868,7 +3868,7 @@ If the task was going to be overdue the next day.
 If the task was overdue on that day.
 @end table
 
-In addition to coloring each day, the day is also marked with an asterix if
+In addition to coloring each day, the day is also marked with an asterisk if
 the task was actually done that day, and an exclamation mark to show where
 the current day falls in the graph.
 
@@ -5745,8 +5745,8 @@ use the shift key and press @kbd{S}.  Remember that using shift will always
 leave you clocked out, no matter which option you choose.
 @item C
 To cancel the clock altogether, use @kbd{C}.  Note that if instead of
-cancelling you subtract the away time, and the resulting clock amount is less
-than a minute, the clock will still be cancelled rather than clutter up the
+canceling you subtract the away time, and the resulting clock amount is less
+than a minute, the clock will still be canceled rather than clutter up the
 log with an empty entry.
 @end table
 
@@ -6026,7 +6026,7 @@ place where you started the capture process.
 @node Template elements, Template expansion, Capture templates, Capture templates
 @subsubsection Template elements
 
-Now lets look at the elements of a template defintion.  Each entry in
+Now lets look at the elements of a template definition.  Each entry in
 @code{org-capture-templates} is a list with the following items: 
 
 @table @var
@@ -6315,23 +6315,27 @@ same directory for attachments as the parent does.
 @node RSS Feeds, Protocols, Attachments, Capture - Refile - Archive
 @section RSS feeds
 @cindex RSS feeds
+@cindex Atom feeds
 
-Org can add and change entries based on information found in RSS feeds.  You
-could use this to make a task out of each new podcast in a podcast feed.  Or
-you could use a phone-based note-creating service on the web to import tasks
-into Org.  To access feeds, configure the variable @code{org-feed-alist}.
-The docstring of this variable has detailed information.  Here is just an
-example:
+Org can add and change entries based on information found in RSS feeds and
+Atom feeds.  You could use this to make a task out of each new podcast in a
+podcast feed.  Or you could use a phone-based note-creating service on the
+web to import tasks into Org.  To access feeds, configure the variable
+@code{org-feed-alist}.  The docstring of this variable has detailed
+information.  Here is just an example:
 
 @example
 (setq org-feed-alist
-      '(("ReQall" "http://www.reqall.com/user/feeds/rss/a1b2c3....."
-         "~/org/feeds.org" "ReQall Entries")
+     '(("Slashdot"
+	 "http://rss.slashdot.org/Slashdot/slashdot"
+	 "~/txt/org/feeds.org" "Slashdot Entries")))
 @end example
+
 @noindent
-will configure that new items from the feed provided by @file{reqall.com}
-will result in new entries in the file @file{~/org/feeds.org} under the
-heading @samp{ReQall Entries}, whenever the following command is used:
+will configure that new items from the feed provided by
+@code{rss.slashdot.org} will result in new entries in the file
+@file{~/org/feeds.org} under the heading @samp{Slashdot Entries}, whenever
+the following command is used:
 
 @table @kbd
 @kindex C-c C-x g
@@ -6352,8 +6356,8 @@ list of drawers in that file:
 #+DRAWERS: LOGBOOK PROPERTIES FEEDSTATUS
 @end example
 
-For more information, see @file{org-feed.el} and the docstring of
-@code{org-feed-alist}.
+For more information, including how to read atom feeds, see
+@file{org-feed.el} and the docstring of @code{org-feed-alist}.
 
 @node Protocols, Refiling notes, RSS Feeds, Capture - Refile - Archive
 @section Protocols for external access
@@ -9455,7 +9459,7 @@ and @code{style} attributes for a link:
 Org-mode tables are exported to HTML using the table tag defined in
 @code{org-export-html-table-tag}.  The default setting makes tables without
 cell borders and frame.  If you would like to change this for individual
-tables, place somthing like the following before the table:
+tables, place something like the following before the table:
 
 @cindex #+CAPTION
 @cindex #+ATTR_HTML
@@ -9486,7 +9490,7 @@ will link to a high resolution version of the image, you could use:
 [[file:highres.jpg][file:thumb.jpg]]
 @end example
 
-If you need to add attributes to an inlines image, use a @code{#+ATTR_HTML}.
+If you need to add attributes to an inlined image, use a @code{#+ATTR_HTML}.
 In the example below we specify the @code{alt} and @code{title} attributes to
 support text viewers and accessibility, and align it to the right.
 
@@ -10329,7 +10333,7 @@ For more information and examples see the Org-taskjuggler tutorial at
 @cindex Freemind export
 @cindex mind map
 
-The freemind exporter was written by Lennart Borgman.
+The Freemind exporter was written by Lennart Borgman.
 
 @table @kbd
 @kindex C-c C-e m
@@ -11005,7 +11009,7 @@ formulas (see @ref{The spreadsheet}).
 @item <language>
 The language of the code in the block.
 @item <switches>
-Switches controling exportation of the code block (see switches discussion in
+Switches controlling exportation of the code block (see switches discussion in
 @ref{Literal examples})
 @item <header arguments>
 Optional header arguments control many aspects of evaluation, export and
@@ -11086,6 +11090,13 @@ Both the code block and its results will be exported.
 Neither the code block nor its results will be exported.
 @end table
 
+It is possible to inhibit the evaluation of code blocks during export.
+Setting the the @code{org-export-babel-evaluate} variable to @code{nil} will
+ensure that no code blocks are evaluated as part of the export process.  This
+can be useful in situations where potentially untrusted Org-mode files are
+exported in an automated fashion, for example when Org-mode is used as the
+markup language for a wiki.
+
 @comment  node-name,  next,  previous,  up
 @comment  Extracting source code, Evaluating code blocks, Exporting code blocks, Working With Source Code
 @node Extracting source code, Evaluating code blocks, Exporting code blocks, Working With Source Code
@@ -11120,8 +11131,13 @@ Tangle the current file.
 Choose a file to tangle.
 @end table
 
-@comment  node-name,  next,  previous,  up
-@comment  Evaluating code blocks,  , Extracting source code, Working With Source Code
+@subsubheading Hooks
+@table @code
+@item org-babel-post-tangle-hook
+This hook is run from within code files tangled by @code{org-babel-tangle}.
+Example applications could include post-processing, compilation or evaluation
+of tangled code files.
+@end table
 
 @node Evaluating code blocks, Library of Babel, Extracting source code, Working With Source Code
 @section Evaluating code blocks
@@ -11413,7 +11429,7 @@ The following header arguments are defined:
 @menu
 * var::				Pass arguments to code blocks
 * results::			Specify the type of results and how they will
-                                be collectd and handled
+                                be collected and handled
 * file::			Specify a path for file output
 * dir and remote execution::	Specify the default directory for code block
                                 execution
@@ -12244,7 +12260,7 @@ emacsclient \
 
 @menu
 * Completion::			M-TAB knows what you need
-* Speed keys::			Electic commands at the beginning of a headline
+* Speed keys::			Electric commands at the beginning of a headline
 * Code evaluation security::	Org mode files evaluate inline code
 * Customization::		Adapting Org to your taste
 * In-buffer settings::		Overview of the #+KEYWORDS
@@ -14153,7 +14169,7 @@ the view, only the current agenda files will be searched.
 
 @node History and Acknowledgments, Main Index, MobileOrg, Top
 @appendix History and acknowledgments
-@cindex acknowledgements
+@cindex acknowledgments
 @cindex history
 @cindex thanks
 
