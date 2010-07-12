@@ -135,7 +135,7 @@ When PUB-DIR is set, use this as the publishing directory."
 			  (plist-get opt-plist :description)))
 	 (atom-title (or (plist-get opt-plist :feed-title)
 			 (plist-get opt-plist :title)))
-	 (atom-file (file-name-nondirectory atom-url))
+	 (atom-file (concat (or pub-dir "") (file-name-nondirectory atom-url)))
 	 (atom-publish-email (or (plist-get opt-plist :email-info)
 				 org-export-email-info))
 	 (atom-options (plist-get opt-plist :feed-options))
@@ -170,7 +170,6 @@ When PUB-DIR is set, use this as the publishing directory."
       (when (and (not body-only) (string= atom-url ""))
 	(error "Missing url for feed"))
       (when (string= atom-id "") (setq atom-id atom-url))
-
       (unless to-buffer
 	(setq to-buffer (if atom-file
 			    (or (find-buffer-visiting atom-file)
@@ -205,7 +204,6 @@ When PUB-DIR is set, use this as the publishing directory."
 					       (list 'author nil author email)
 					     (list 'author nil author))))
 				   e)) entries)))
-	(print (format "DEBUG: %s" (car entries)))
 	(setq feed
 	      (if body-only
 		  (mapconcat (lambda (e)
