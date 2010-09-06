@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -53,7 +53,7 @@
 
 (defvar org-babel-default-header-args:asymptote
   '((:results . "file") (:exports . "results"))
-  "Default arguments to use when evaluating a asymptote source block.")
+  "Default arguments when evaluating an Asymptote source block.")
 
 (defun org-babel-expand-body:asymptote (body params &optional processed-params)
   "Expand BODY according to PARAMS, return the expanded body."
@@ -63,9 +63,8 @@
 	    "\n" body "\n")))
 
 (defun org-babel-execute:asymptote (body params)
-  "Execute a block of Asymptote code with org-babel.  This function is
-called by `org-babel-execute-src-block'."
-  (message "executing Asymptote source code block")
+  "Execute a block of Asymptote code.
+This function is called by `org-babel-execute-src-block'."
   (let* ((processed-params (org-babel-process-params params))
          (result-params (split-string (or (cdr (assoc :results params)) "")))
          (out-file (cdr (assoc :file params)))
@@ -74,7 +73,7 @@ called by `org-babel-execute-src-block'."
                           (match-string 1 out-file))
                      "pdf"))
          (cmdline (cdr (assoc :cmdline params)))
-         (in-file (make-temp-file "org-babel-asymptote"))
+         (in-file (org-babel-temp-file "asymptote-"))
          (cmd (concat "asy "
                       (if out-file
                           (concat "-globalwrite -f " format " -o " out-file)
@@ -86,12 +85,14 @@ called by `org-babel-execute-src-block'."
     out-file))
 
 (defun org-babel-prep-session:asymptote (session params)
-  "Prepare a session named SESSION according to PARAMS."
+  "Return an error if the :session header argument is set.
+Asymptote does not support sessions"
   (error "Asymptote does not support sessions"))
 
 (defun org-babel-asymptote-var-to-asymptote (pair)
-  "Convert an elisp val into a string of asymptote code specifying a var
-of the same value."
+  "Convert an elisp value into an Asymptote variable.
+The elisp value PAIR is converted into Asymptote code specifying
+a variable of the same value."
   (let ((var (car pair))
         (val (if (symbolp (cdr pair))
                  (symbol-name (cdr pair))
@@ -135,10 +136,10 @@ Empty cells are ignored."
      (org-combine-plists '(:hline nil :sep "," :tstart "{" :tend "}") params))))
 
 (defun org-babel-asymptote-define-type (data)
-  "Determine type of DATA. DATA is a list. Type symbol is
-returned as 'symbol. The type is usually the type of the first
-atom encountered, except for arrays of int where every cell must
-be of int type."
+  "Determine type of DATA.
+DATA is a list. Type symbol is returned as 'symbol. The type is
+usually the type of the first atom encountered, except for arrays
+of int, where every cell must be of int type."
   (labels ((anything-but-int (el)
                              (cond
                               ((null el) nil)

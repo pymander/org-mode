@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -54,16 +54,15 @@
   "Expand BODY according to PARAMS, return the expanded body." body)
 
 (defun org-babel-execute:sql (body params)
-  "Execute a block of Sql code with org-babel.  This function is
-called by `org-babel-execute-src-block'."
-  (message "executing Sql source code block")
+  "Execute a block of Sql code with Babel.
+This function is called by `org-babel-execute-src-block'."
   (let* ((result-params (split-string (or (cdr (assoc :results params)) "")))
 	 (processed-params (org-babel-process-params params))
          (cmdline (cdr (assoc :cmdline params)))
          (engine (cdr (assoc :engine params)))
-         (in-file (make-temp-file "org-babel-sql-in"))
+         (in-file (org-babel-temp-file "sql-in-"))
          (out-file (or (cdr (assoc :out-file params))
-                       (make-temp-file "org-babel-sql-out")))
+                       (org-babel-temp-file "sql-out-")))
          (command (case (intern engine)
                     ('mysql (format "mysql %s -e \"source %s\" > %s"
                                     (or cmdline "") in-file out-file))
@@ -81,7 +80,7 @@ called by `org-babel-execute-src-block'."
 
 
 (defun org-babel-prep-session:sql (session params)
-  "Prepare SESSION according to the header arguments specified in PARAMS."
+  "Raise an error because Sql sessions aren't implemented."
   (error "sql sessions not yet implemented"))
 
 (provide 'ob-sql)

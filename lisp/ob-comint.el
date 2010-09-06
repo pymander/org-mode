@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research, comint
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -34,6 +34,8 @@
 (require 'ob)
 (require 'comint)
 (eval-when-compile (require 'cl))
+(declare-function with-parsed-tramp-file-name "tramp" (filename var &rest body))
+(declare-function tramp-flush-directory-property "tramp" (vec directory))
 
 (defun org-babel-comint-buffer-livep (buffer)
   "Check if BUFFER is a comint buffer with a live process."
@@ -41,8 +43,9 @@
     (and buffer (buffer-live-p buffer) (get-buffer-process buffer) buffer)))
 
 (defmacro org-babel-comint-in-buffer (buffer &rest body)
-  "Check BUFFER with `org-babel-comint-buffer-livep' then execute
-body inside the protection of `save-window-excursion' and
+  "Check BUFFER and execute BODY.
+BUFFER is checked with `org-babel-comint-buffer-livep'.  BODY is
+executed inside the protection of `save-window-excursion' and
 `save-match-data'."
   (declare (indent 1))
   `(save-excursion
@@ -53,11 +56,12 @@ body inside the protection of `save-window-excursion' and
        ,@body)))
 
 (defmacro org-babel-comint-with-output (meta &rest body)
-  "Evaluate BODY in BUFFER, wait until EOE-INDICATOR appears in
-output, then return all process output.  If REMOVE-ECHO and
-FULL-BODY are present and non-nil, then strip echo'd body from
-the returned output.  META should be a list containing the
-following where the last two elements are optional.
+  "Evaluate BODY in BUFFER and return process output.
+Will wait until EOE-INDICATOR appears in the output, then return
+all process output.  If REMOVE-ECHO and FULL-BODY are present and
+non-nil, then strip echo'd body from the returned output.  META
+should be a list containing the following where the last two
+elements are optional.
 
  (BUFFER EOE-INDICATOR REMOVE-ECHO FULL-BODY)
 
@@ -113,7 +117,8 @@ or user `keyboard-quit' during execution of body."
 	 (split-string string-buffer comint-prompt-regexp)))))
 
 (defun org-babel-comint-input-command (buffer cmd)
-  "Pass CMD to BUFFER  The input will not be echoed."
+  "Pass CMD to BUFFER.
+The input will not be echoed."
   (org-babel-comint-in-buffer buffer
     (goto-char (process-mark (get-buffer-process buffer)))
     (insert cmd)
@@ -121,9 +126,9 @@ or user `keyboard-quit' during execution of body."
     (org-babel-comint-wait-for-output buffer)))
 
 (defun org-babel-comint-wait-for-output (buffer)
-  "Wait until output arrives from BUFFER.  Note: this is only
-safe when waiting for the result of a single statement (not large
-blocks of code)."
+  "Wait until output arrives from BUFFER.
+Note: this is only safe when waiting for the result of a single
+statement (not large blocks of code)."
   (org-babel-comint-in-buffer buffer
     (while (progn
              (goto-char comint-last-input-end)
@@ -132,6 +137,24 @@ blocks of code)."
                        (string= (face-name (face-at-point))
                                 "comint-highlight-prompt"))))
       (accept-process-output (get-buffer-process buffer)))))
+
+(defun org-babel-comint-eval-invisibly-and-wait-for-file
+  (buffer file string &optional period)
+  "Evaluate STRING in BUFFER invisibly.
+Don't return until FILE exists. Code in STRING must ensure that
+FILE exists at end of evaluation."
+  (unless (org-babel-comint-buffer-livep buffer)
+    (error "buffer %s doesn't exist or has no process" buffer))
+  (if (file-exists-p file) (delete-file file))
+  (process-send-string
+   (get-buffer-process buffer)
+   (if (string-match "\n$" string) string (concat string "\n")))
+  ;; From Tramp 2.1.19 the following cache flush is not necessary
+  (if (file-remote-p default-directory)
+      (let (v)
+	(with-parsed-tramp-file-name default-directory nil
+	  (tramp-flush-directory-property v ""))))
+  (while (not (file-exists-p file)) (sit-for (or period 0.25))))
 
 (provide 'ob-comint)
 

@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -26,7 +26,10 @@
 ;;
 ;;; Commentary:
 
+;;; Code:
+
 (require 'org-exp)
+
 (eval-when-compile
   (require 'cl))
 
@@ -397,7 +400,7 @@ publishing directory."
 
 			 (if (and (memq org-export-with-tags '(not-in-toc nil))
 				  (string-match
-				   (org-re "[ \t]+:[[:alnum:]_@:]+:[ \t]*$")
+				   (org-re "[ \t]+:[[:alnum:]_@#%:]+:[ \t]*$")
 				   txt))
 			     (setq txt (replace-match "" t t txt)))
 			 (if (string-match quote-re0 txt)
@@ -541,7 +544,7 @@ publishing directory."
       (current-buffer))))
 
 (defun org-export-ascii-preprocess (parameters)
-  "Do extra work for ASCII export"
+  "Do extra work for ASCII export."
   ;;
   ;; Realign tables to get rid of narrowing
   (when org-export-ascii-table-widen-columns
@@ -568,9 +571,12 @@ publishing directory."
       (replace-match "\\1\\2")))
   ;; Remove list start counters
   (goto-char (point-min))
-  (while (re-search-forward  "\\[@start:[0-9]+\\] ?" nil t)
-    (org-if-unprotected
-     (replace-match ""))))
+  (while (org-search-forward-unenclosed
+	  "\\[@\\(?:start:\\)?[0-9]+\\][ \t]*" nil t)
+    (replace-match ""))
+  (remove-text-properties
+   (point-min) (point-max)
+   '(face nil font-lock-fontified nil font-lock-multiline nil line-prefix nil wrap-prefix nil)))
 
 (defun org-html-expand-for-ascii (line)
   "Handle quoted HTML for ASCII export."
@@ -642,7 +648,7 @@ publishing directory."
 	  (insert "\n"))
       (setq char (nth (- umax level) (reverse org-export-ascii-underline)))
       (unless org-export-with-tags
-	(if (string-match (org-re "[ \t]+\\(:[[:alnum:]_@:]+:\\)[ \t]*$") title)
+	(if (string-match (org-re "[ \t]+\\(:[[:alnum:]_@#%:]+:\\)[ \t]*$") title)
 	    (setq title (replace-match "" t t title))))
       (if org-export-with-section-numbers
 	  (setq title (concat (org-section-number level) " " title)))

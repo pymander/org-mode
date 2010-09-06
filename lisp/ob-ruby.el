@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -54,7 +54,6 @@
 
 (defun org-babel-expand-body:ruby (body params &optional processed-params)
   "Expand BODY according to PARAMS, return the expanded body."
-  (require 'inf-ruby)
   (let ((vars (nth 1 (or processed-params (org-babel-process-params params)))))
     (concat
      (mapconcat ;; define any variables
@@ -65,9 +64,8 @@
       vars "\n") "\n" body "\n")))
 
 (defun org-babel-execute:ruby (body params)
-  "Execute a block of Ruby code with org-babel.  This function is
-called by `org-babel-execute-src-block'."
-  (message "executing Ruby source code block")
+  "Execute a block of Ruby code with Babel.
+This function is called by `org-babel-execute-src-block'."
   (let* ((processed-params (org-babel-process-params params))
          (session (org-babel-ruby-initiate-session (first processed-params)))
          (result-params (nth 2 processed-params))
@@ -115,14 +113,16 @@ called by `org-babel-execute-src-block'."
 ;; helper functions
 
 (defun org-babel-ruby-var-to-ruby (var)
-  "Convert an elisp var into a string of ruby source code
-specifying a var of the same value."
+  "Convert VAR into a ruby variable.
+Convert an elisp value into a string of ruby source code
+specifying a variable of the same value."
   (if (listp var)
       (concat "[" (mapconcat #'org-babel-ruby-var-to-ruby var ", ") "]")
     (format "%S" var)))
 
 (defun org-babel-ruby-table-or-string (results)
-  "If RESULTS look like a table, then convert them into an
+  "Convert RESULTS into an appropriate elisp value.
+If RESULTS look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
   (org-babel-read
    (if (and (stringp results) (string-match "^\\[.+\\]$" results))
@@ -136,7 +136,8 @@ Emacs-lisp table, otherwise return the results as a string."
      results)))
 
 (defun org-babel-ruby-initiate-session (&optional session params)
-  "If there is not a current inferior-process-buffer in SESSION
+  "Initiate a ruby session.
+If there is not a current inferior-process-buffer in SESSION
 then create one.  Return the initialized session."
   (require 'inf-ruby)
   (unless (string= session "none")
@@ -148,7 +149,7 @@ then create one.  Return the initialized session."
         (org-babel-ruby-initiate-session session)))))
 
 (defvar org-babel-ruby-eoe-indicator ":org_babel_ruby_eoe"
-  "Used to indicate that evaluation is has completed.")
+  "String to indicate that evaluation has completed.")
 (defvar org-babel-ruby-f-write
   "File.open('%s','w'){|f| f.write((_.class == String) ? _ : _.inspect)}")
 (defvar org-babel-ruby-pp-f-write
@@ -176,15 +177,15 @@ end
 
 (defun org-babel-ruby-evaluate
   (buffer body &optional result-type result-params)
-  "Pass BODY to the Ruby process in BUFFER.  If RESULT-TYPE equals
-'output then return a list of the outputs of the statements in
-BODY, if RESULT-TYPE equals 'value then return the value of the
-last statement in BODY, as elisp."
+  "Pass BODY to the Ruby process in BUFFER.
+If RESULT-TYPE equals 'output then return a list of the outputs
+of the statements in BODY, if RESULT-TYPE equals 'value then
+return the value of the last statement in BODY, as elisp."
   (if (not buffer)
       ;; external process evaluation
       (case result-type
 	(output (org-babel-eval org-babel-ruby-command body))
-	(value (let ((tmp-file (make-temp-file "org-babel-ruby-results-")))
+	(value (let ((tmp-file (org-babel-temp-file "ruby-results-")))
 		 (org-babel-eval org-babel-ruby-command
 				 (format (if (member "pp" result-params)
 					     org-babel-ruby-pp-wrapper-method
@@ -219,7 +220,7 @@ last statement in BODY, as elisp."
 	  (if (or (member "code" result-params) (member "pp" result-params))
 	      results
 	    (org-babel-ruby-table-or-string results)))
-	(let* ((tmp-file (make-temp-file "org-babel-ruby-results-"))
+	(let* ((tmp-file (org-babel-temp-file "ruby-results-"))
 	       (ppp (or (member "code" result-params)
 			(member "pp" result-params))))
 	  (org-babel-comint-with-output

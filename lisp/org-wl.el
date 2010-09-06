@@ -7,7 +7,7 @@
 ;;         David Maus <dmaus at ictsoc dot de>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -105,7 +105,7 @@ googlegroups otherwise."
   '(("%" . imap) ("-" . nntp) ("+" . mh) ("=" . spool)
     ("$" . archive) ("&" . pop) ("@" . shimbun) ("[" . search)
     ("*" . multi) ("/" . filter) ("|" . pipe) ("'" . internal))
-  "List of folder indicators. See Wanderlust manual, section 3.")
+  "List of folder indicators.  See Wanderlust manual, section 3.")
 
 ;; Install the link type
 (org-add-link-type "wl" 'org-wl-open)
@@ -114,8 +114,8 @@ googlegroups otherwise."
 ;; Implementation
 
 (defun org-wl-folder-type (folder)
-  "Return symbol that indicicates the type of FOLDER.
-FOLDER is the wanderlust folder name. The first character of the
+  "Return symbol that indicates the type of FOLDER.
+FOLDER is the wanderlust folder name.  The first character of the
 folder name determines the the folder type."
   (let* ((indicator (substring folder 0 1))
 	 (type (cdr (assoc indicator org-wl-folder-types))))
@@ -142,13 +142,14 @@ ENTITY is a message entity."
 
 (defun org-wl-store-link ()
   "Store a link to a WL message or folder."
-  (cond
-   ((memq major-mode '(wl-summary-mode mime-view-mode))
-    (org-wl-store-link-message))
-   ((eq major-mode 'wl-folder-mode)
-    (org-wl-store-link-folder))
-   (t
-    nil)))
+  (unless (eobp)
+    (cond
+     ((memq major-mode '(wl-summary-mode mime-view-mode))
+      (org-wl-store-link-message))
+     ((eq major-mode 'wl-folder-mode)
+      (org-wl-store-link-folder))
+     (t
+      nil))))
 
 (defun org-wl-store-link-folder ()
   "Store a link to a WL folder."
@@ -189,6 +190,8 @@ ENTITY is a message entity."
 		     msgnum (wl-summary-buffer-msgdb))))
 		 (message-id
 		  (org-wl-message-field 'message-id wl-message-entity))
+		 (message-id-no-brackets
+		  (org-remove-angle-brackets message-id))
 		 (from (org-wl-message-field 'from wl-message-entity))
 		 (to (org-wl-message-field 'to wl-message-entity))
 		 (xref (org-wl-message-field 'xref wl-message-entity))
@@ -212,6 +215,7 @@ ENTITY is a message entity."
 		   org-wl-shimbun-prefer-web-links xref)
 	      (org-store-link-props :type "http" :link xref :description subject
 				    :from from :to to :message-id message-id
+				    :message-id-no-brackets message-id-no-brackets
 				    :subject subject))
 	     ((and (eq folder-type 'nntp) org-wl-nntp-prefer-web-links)
 	      (setq link
@@ -222,13 +226,14 @@ ENTITY is a message entity."
 		     (org-fixup-message-id-for-http message-id)))
 	      (org-store-link-props :type "http" :link link :description subject
 				    :from from :to to :message-id message-id
+				    :message-id-no-brackets message-id-no-brackets
 				    :subject subject))
 	     (t
 	      (org-store-link-props :type "wl" :from from :to to
-				    :subject subject :message-id message-id)
-	      (setq message-id (org-remove-angle-brackets message-id))
+				    :subject subject :message-id message-id
+				    :message-id-no-brackets message-id-no-brackets)
 	      (setq desc (org-email-link-description))
-	      (setq link (org-make-link "wl:" folder-name "#" message-id))
+	      (setq link (org-make-link "wl:" folder-name "#" message-id-no-brackets))
 	      (org-add-link-props :link link :description desc)))
 	    (or link xref)))))))
 

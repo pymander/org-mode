@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -28,15 +28,12 @@
 
 ;;; Code:
 (require 'ob)
+(eval-when-compile (require 'ob-comint))
 
 (defvar org-babel-default-header-args:emacs-lisp
   '((:hlines . "yes") (:colnames . "no"))
-  "Default arguments to use when evaluating an emacs-lisp source block.")
+  "Default arguments for evaluating an emacs-lisp source block.")
 
-(declare-function org-babel-comint-with-output "ob-comint" (&rest body))
-(declare-function org-babel-comint-buffer-livep "ob-comint" (buffer))
-(declare-function org-babel-comint-wait-for-output "ob-comint" (buffer))
-(declare-function org-babel-comint-in-buffer "ob-comint" (buffer &rest body))
 (declare-function orgtbl-to-generic "org-table" (table params))
 
 (defun org-babel-expand-body:emacs-lisp (body params &optional processed-params)
@@ -57,8 +54,7 @@
 	(concat "(pp " body ")") body)))
 
 (defun org-babel-execute:emacs-lisp (body params)
-  "Execute a block of emacs-lisp code with org-babel."
-  (message "executing emacs-lisp code block...")
+  "Execute a block of emacs-lisp code with Babel."
   (save-window-excursion
     (let ((processed-params (org-babel-process-params params)))
       (org-babel-reassemble-table

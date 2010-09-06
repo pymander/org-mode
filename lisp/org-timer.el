@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -26,6 +26,8 @@
 ;;; Commentary:
 
 ;; This file contains the relative timer code for Org-mode
+
+;;; Code:
 
 (require 'org)
 
@@ -102,7 +104,7 @@ the region 0:00:00."
 	  (setq delta (org-timer-hms-to-secs (org-timer-fix-incomplete s)))))
 	(setq org-timer-start-time
 	      (seconds-to-time
-	       (- (org-float-time) (org-timer-hms-to-secs s)))))
+	       (- (org-float-time) delta))))
       (org-timer-set-mode-line 'on)
       (message "Timer start time set to %s, current value is %s"
 	       (format-time-string "%T" org-timer-start-time)
@@ -110,7 +112,8 @@ the region 0:00:00."
       (run-hooks 'org-timer-start-hook))))
 
 (defun org-timer-pause-or-continue (&optional stop)
-  "Pause or continue the relative timer.  With prefix arg, stop it entirely."
+  "Pause or continue the relative timer.
+With prefix arg STOP, stop it entirely."
   (interactive "P")
   (cond
    (stop (org-timer-stop))
@@ -142,24 +145,33 @@ the region 0:00:00."
   (org-timer-set-mode-line 'off))
 
 ;;;###autoload
-(defun org-timer (&optional restart)
+(defun org-timer (&optional restart no-insert-p)
   "Insert a H:MM:SS string from the timer into the buffer.
 The first time this command is used, the timer is started.  When used with
-a `C-u' prefix, force restarting the timer.
-When used with a double prefix arg `C-u C-u', change all the timer string
+a \\[universal-argument] prefix, force restarting the timer.
+When used with a double prefix argument \\[universal-argument], change all the timer string
 in the region by a fixed amount.  This can be used to recalibrate a timer
-that was not started at the correct moment."
+that was not started at the correct moment.
+
+If NO-INSERT-P is non-nil, return the string instead of inserting
+it in the buffer."
   (interactive "P")
-  (if (equal restart '(4)) (org-timer-start))
-  (or org-timer-start-time (org-timer-start))
-  (insert (org-timer-value-string)))
+  (when (or (equal restart '(4)) (not org-timer-start-time))
+    (org-timer-start))
+  (if no-insert-p
+      (org-timer-value-string)
+    (insert (org-timer-value-string))))
 
 (defun org-timer-value-string ()
   (format org-timer-format (org-timer-secs-to-hms (floor (org-timer-seconds)))))
 
+(defvar org-timer-timer-is-countdown nil)
 (defun org-timer-seconds ()
-  (- (org-float-time (or org-timer-pause-time (current-time)))
-     (org-float-time org-timer-start-time)))
+  (if org-timer-timer-is-countdown
+      (- (org-float-time org-timer-start-time)
+	 (org-float-time (current-time)))
+    (- (org-float-time (or org-timer-pause-time (current-time)))
+       (org-float-time org-timer-start-time))))
 
 ;;;###autoload
 (defun org-timer-change-times-in-region (beg end delta)
@@ -191,19 +203,22 @@ that was not started at the correct moment."
 (defun org-timer-item (&optional arg)
   "Insert a description-type item with the current timer value."
   (interactive "P")
-  (let ((ind 0))
-    (save-excursion
-      (skip-chars-backward " \n\t")
-      (condition-case nil
-	  (progn
-	    (org-beginning-of-item)
-	    (setq ind (org-get-indentation)))
-	(error nil)))
-    (or (bolp) (newline))
-    (org-indent-line-to ind)
-    (insert "- ")
-    (org-timer (if arg '(4)))
-    (insert ":: ")))
+  (cond
+   ;; In a timer list, insert with `org-list-insert-item-generic'.
+   ((and (org-in-item-p)
+	 (save-excursion (org-beginning-of-item) (org-at-item-timer-p)))
+    (org-list-insert-item-generic
+     (point) nil (concat (org-timer (when arg '(4)) t) ":: ")))
+   ;; In a list of another type, don't break anything: throw an error.
+   ((org-in-item-p)
+    (error "This is not a timer list"))
+   ;; Else, insert the timer correctly indented at bol.
+   (t
+    (beginning-of-line)
+    (org-indent-line-function)
+    (insert  "- ")
+    (org-timer (when arg '(4)))
+    (insert ":: "))))
 
 (defun org-timer-fix-incomplete (hms)
   "If hms is a H:MM:SS string with missing hour or hour and minute, fix it."
@@ -288,7 +303,9 @@ VALUE can be `on', `off', or `pause'."
   (when (eval org-timer-current-timer)
     (run-hooks 'org-timer-cancel-hook)
     (cancel-timer org-timer-current-timer)
-    (setq org-timer-current-timer nil))
+    (setq org-timer-current-timer nil)
+    (setq org-timer-timer-is-countdown nil)
+    (org-timer-set-mode-line 'off))
   (message "Last timer canceled"))
 
 (defun org-timer-show-remaining-time ()
@@ -349,9 +366,11 @@ replace any running timer."
 		     (widen)
 		     (goto-char pos)
 		     (org-show-entry)
-		     (org-get-heading))))
+		     (or (ignore-errors (org-get-heading))
+			 (concat "File:" (file-name-nondirectory (buffer-file-name)))))))
 		((eq major-mode 'org-mode)
-		 (org-get-heading))
+		 (or (ignore-errors (org-get-heading))
+		     (concat "File:" (file-name-nondirectory (buffer-file-name)))))
 		(t (error "Not in an Org buffer"))))
 	   timer-set)
       (if (or (and org-timer-current-timer
@@ -366,8 +385,14 @@ replace any running timer."
 		   secs nil `(lambda ()
 			       (setq org-timer-current-timer nil)
 			       (org-notify ,(format "%s: time out" hl) t)
+			       (setq org-timer-timer-is-countdown nil)
+			       (org-timer-set-mode-line 'off)
 			       (run-hooks 'org-timer-done-hook))))
-	    (run-hooks 'org-timer-set-hook))
+	    (run-hooks 'org-timer-set-hook)
+	    (setq org-timer-timer-is-countdown t
+		  org-timer-start-time
+		  (time-add (current-time) (seconds-to-time (* mins 60))))
+	    (org-timer-set-mode-line 'on))
 	(message "No timer set"))))))
 
 (provide 'org-timer)

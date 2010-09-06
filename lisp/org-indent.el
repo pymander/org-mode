@@ -4,7 +4,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -29,12 +29,14 @@
 ;; by adding text properties to a buffer to make sure lines are
 ;; indented according to outline structure.
 
+;;; Code:
+
 (require 'org-macs)
 (require 'org-compat)
 (require 'org)
+
 (eval-when-compile
   (require 'cl))
-
 
 (defgroup org-indent nil
   "Options concerning dynamic virtual outline indentation."
@@ -42,9 +44,9 @@
   :group 'org)
 
 (defconst org-indent-max 40
-  "Maximum indentation in characters")
+  "Maximum indentation in characters.")
 (defconst org-indent-max-levels 40
-  "Maximum indentation in characters")
+  "Maximum indentation in characters.")
 
 (defvar org-indent-strings nil
   "Vector with all indentation strings.
@@ -53,7 +55,7 @@ It will be set in `org-indent-initialize'.")
   "Vector with all indentation star strings.
 It will be set in `org-indent-initialize'.")
 (defvar org-hide-leading-stars-before-indent-mode nil
-  "Used locally")
+  "Used locally.")
 
 (defcustom org-indent-boundary-char ?\   ; comment to protect space char
   "The end of the virtual indentation strings, a single-character string.
@@ -67,13 +69,15 @@ it may be prettier to customize the org-indent face."
   :type 'character)
 
 (defcustom org-indent-mode-turns-off-org-adapt-indentation t
-  "Non-nil means turning on `org-indent-mode' turns off indentation adaptation.
+  "Non-nil means setting the variable `org-indent-mode' will \
+turn off indentation adaptation.
 For details see the variable `org-adapt-indentation'."
   :group 'org-indent
   :type 'boolean)
 
 (defcustom org-indent-mode-turns-on-hiding-stars t
-  "Non-nil means turning on `org-indent-mode' turns on `org-hide-leading-stars'."
+  "Non-nil means setting the variable `org-indent-mode' will \
+turn on `org-hide-leading-stars'."
   :group 'org-indent
   :type 'boolean)
 
@@ -131,11 +135,11 @@ FIXME:  How to update when broken?"
    ((org-bound-and-true-p org-inhibit-startup)
     (setq org-indent-mode nil))
    ((and org-indent-mode (featurep 'xemacs))
-    (message "org-indent-mode does not work in XEmacs - refused to turn it on")
+    (message "org-indent-mode does not work in XEmacs - refusing to turn it on")
     (setq org-indent-mode nil))
    ((and org-indent-mode
 	 (not (org-version-check "23.1.50" "Org Indent mode" :predicate)))
-    (message "org-indent-mode is can crash Emacs 23.1 - refused to turn it on!")
+    (message "org-indent-mode can crash Emacs 23.1 - refusing to turn it on!")
     (ding)
     (sit-for 1)
     (setq org-indent-mode nil))
@@ -199,8 +203,9 @@ useful to make it ever so slightly different."
 
 (defun org-indent-remove-properties (beg end)
   "Remove indentations between BEG and END."
-  (org-unmodified
-   (remove-text-properties beg end '(line-prefix nil wrap-prefix nil))))
+  (let ((inhibit-modification-hooks t))
+    (org-unmodified
+     (remove-text-properties beg end '(line-prefix nil wrap-prefix nil)))))
 
 (defun org-indent-remove-properties-from-string (string)
   "Remove indentations between BEG and END."
@@ -215,7 +220,8 @@ useful to make it ever so slightly different."
   "Add indentation properties between BEG and END.
 Assumes that BEG is at the beginning of a line."
   (when (or t org-indent-mode)
-    (let (ov b e n level exit nstars)
+    (let ((inhibit-modification-hooks t)
+	  ov b e n level exit nstars)
       (org-unmodified
        (save-excursion
 	 (goto-char beg)

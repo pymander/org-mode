@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -68,6 +68,8 @@
 ;; org-id-find
 ;;        Find the location of an entry with specific id.
 ;;
+
+;;; Code:
 
 (require 'org)
 
@@ -594,6 +596,7 @@ optional argument MARKERP, return the position as a new marker."
 ;; Calling the following function is hard-coded into `org-store-link',
 ;; so we do have to add it to `org-store-link-functions'.
 
+;;;###autoload
 (defun org-id-store-link ()
   "Store a link to the current entry, using its ID."
   (interactive)

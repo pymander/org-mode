@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -47,23 +47,37 @@
   "Default arguments to use when evaluating a dot source block.")
 
 (defun org-babel-expand-body:dot (body params &optional processed-params)
-  "Expand BODY according to PARAMS, return the expanded body." body)
+  "Expand BODY according to PARAMS, return the expanded body."
+  (let ((vars (nth 1 (or processed-params
+			 (org-babel-process-params params)))))
+    (mapc
+     (lambda (pair)
+       (let ((name (symbol-name (car pair)))
+	     (value (cdr pair)))
+	 (setq body
+	       (replace-regexp-in-string
+		(concat "\$" (regexp-quote name))
+		(if (stringp value) value (format "%S" value))
+		body))))
+     vars)
+    body))
 
 (defun org-babel-execute:dot (body params)
-  "Execute a block of Dot code with org-babel.  This function is
-called by `org-babel-execute-src-block'."
-  (message "executing Dot source code block")
-  (let ((result-params (split-string (or (cdr (assoc :results params)) "")))
+  "Execute a block of Dot code with org-babel.
+This function is called by `org-babel-execute-src-block'."
+  (let ((processed-params (org-babel-process-params params))
+	(result-params (split-string (or (cdr (assoc :results params)) "")))
         (out-file (cdr (assoc :file params)))
         (cmdline (cdr (assoc :cmdline params)))
         (cmd (or (cdr (assoc :cmd params)) "dot"))
-        (in-file (make-temp-file "org-babel-dot")))
-    (with-temp-file in-file (insert body))
+        (in-file (org-babel-temp-file "dot-")))
+    (with-temp-file in-file
+      (insert (org-babel-expand-body:dot body params processed-params)))
     (org-babel-eval (concat cmd " " in-file " " cmdline " -o " out-file) "")
     out-file))
 
 (defun org-babel-prep-session:dot (session params)
-  "Prepare SESSION according to the contents of PARAMS."
+  "Return an error because Dot does not support sessions."
   (error "Dot does not support sessions"))
 
 (provide 'ob-dot)

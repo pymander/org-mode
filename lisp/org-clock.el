@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -29,10 +29,13 @@
 ;; This file contains the time clocking code for Org-mode
 
 (require 'org)
+;;; Code:
+
 (eval-when-compile
   (require 'cl))
 
 (declare-function calendar-absolute-from-iso    "cal-iso"    (&optional date))
+(declare-function notifications-notify "notifications" ())
 (defvar org-time-stamp-formats)
 
 (defgroup org-clock nil
@@ -82,7 +85,7 @@ clocking out."
 (defcustom org-clock-in-switch-to-state nil
   "Set task to a special todo state while clocking it.
 The value should be the state to which the entry should be
-switched. If the value is a function, it must take one
+switched.  If the value is a function, it must take one
 parameter (the current TODO state of the item) and return the
 state to switch it to."
   :group 'org-clock
@@ -95,7 +98,7 @@ state to switch it to."
 (defcustom org-clock-out-switch-to-state nil
   "Set task to a special todo state after clocking out.
 The value should be the state to which the entry should be
-switched. If the value is a function, it must take one
+switched.  If the value is a function, it must take one
 parameter (the current TODO state of the item) and return the
 state to switch it to."
   :group 'org-clock
@@ -123,7 +126,7 @@ The function is called with point at the beginning of the headline."
   :type 'function)
 
 (defcustom org-clock-string-limit 0
-  "Maximum length of clock strings in the modeline. 0 means no limit."
+  "Maximum length of clock strings in the modeline.  0 means no limit."
   :group 'org-clock
   :type 'integer)
 
@@ -135,8 +138,8 @@ the clock can be resumed from that point."
   :type 'boolean)
 
 (defcustom org-clock-persist nil
-  "When non-nil, save the running clock when emacs is closed.
-The clock is resumed when emacs restarts.
+  "When non-nil, save the running clock when Emacs is closed.
+The clock is resumed when Emacs restarts.
 When this is t, both the running clock, and the entire clock
 history are saved.  When this is the symbol `clock', only the
 running clock is saved.
@@ -281,7 +284,7 @@ to add an effort property.")
   "If non-nil, user cancelled a clock; this is when leftover time started.")
 
 (defvar org-clock-effort ""
-  "Effort estimate of the currently clocking task")
+  "Effort estimate of the currently clocking task.")
 
 (defvar org-clock-total-time nil
   "Holds total time, spent previously on currently clocked item.
@@ -341,11 +344,11 @@ of a different task.")
 	org-clock-history))
 
 (defun org-clocking-buffer ()
-  "Returns clocking buffer if we are currently clocking a task or nil"
+  "Return the clocking buffer if we are currently clocking a task or nil."
   (marker-buffer org-clock-marker))
 
 (defun org-clocking-p ()
-  "Returns t when clocking a task"
+  "Return t when clocking a task."
   (not (equal (org-clocking-buffer) nil)))
 
 (defun org-clock-select-task (&optional prompt)
@@ -555,6 +558,14 @@ use libnotify if available, or fall back on a message."
 	((stringp org-show-notification-handler)
 	 (start-process "emacs-timer-notification" nil
 			org-show-notification-handler notification))
+	((featurep 'notifications)
+	 (require 'notifications)
+	 (notifications-notify
+	  :title "Org-mode message"
+	  :body notification
+	  ;; FIXME how to link to the Org icon?
+	  ;; :app-icon "~/.emacs.d/icons/mail.png"
+	  :urgency 'low))
 	((org-program-exists "notify-send")
 	 (start-process "emacs-timer-notification" nil
 			"notify-send" notification))
@@ -869,11 +880,11 @@ If `only-dangling-p' is non-nil, only ask to resolve dangling
       0)))
 
 (defun org-mac-idle-seconds ()
-  "Return the current Mac idle time in seconds"
+  "Return the current Mac idle time in seconds."
   (string-to-number (shell-command-to-string "ioreg -c IOHIDSystem | perl -ane 'if (/Idle/) {$idle=(pop @F)/1000000000; print $idle; last}'")))
 
 (defun org-x11-idle-seconds ()
-  "Return the current X11 idle time in seconds"
+  "Return the current X11 idle time in seconds."
   (/ (string-to-number (shell-command-to-string "x11idle")) 1000))
 
 (defun org-user-idle-seconds ()
@@ -917,8 +928,10 @@ so long."
 (defun org-clock-in (&optional select start-time)
   "Start the clock on the current item.
 If necessary, clock-out of the currently active clock.
-With prefix arg SELECT, offer a list of recently clocked tasks to
-clock into.  When SELECT is `C-u C-u', clock into the current task and mark
+With a prefix argument SELECT (\\[universal-argument]), offer a list of \
+recently clocked tasks to
+clock into.  When SELECT is \\[universal-argument] \\[universal-argument], \
+clock into the current task and mark
 is as the default task, a special task that will always be offered in
 the clocking selection, associated with the letter `d'."
   (interactive "P")
@@ -1094,6 +1107,7 @@ the clocking selection, associated with the letter `d'."
 (defun org-clock-set-current ()
   "Set `org-clock-current-task' to the task currently clocked in."
   (setq org-clock-current-task (nth 4 (org-heading-components))))
+
 (defun org-clock-delete-current ()
   "Reset `org-clock-current-task' to nil."
   (setq org-clock-current-task nil))
@@ -1442,7 +1456,7 @@ nil are excluded from the clock summation."
     (set-buffer-modified-p bmp)))
 
 (defun org-clock-sum-current-item (&optional tstart)
-  "Returns time, clocked on current item in total"
+  "Return time, clocked on current item in total."
   (save-excursion
     (save-restriction
       (org-narrow-to-subtree)
@@ -1858,7 +1872,7 @@ the currently selected interval size."
 	    (when (setq time (get-text-property p :org-clock-minutes))
 	      (save-excursion
 		(beginning-of-line 1)
-		(when (and (looking-at (org-re "\\(\\*+\\)[ \t]+\\(.*?\\)\\([ \t]+:[[:alnum:]_@:]+:\\)?[ \t]*$"))
+		(when (and (looking-at (org-re "\\(\\*+\\)[ \t]+\\(.*?\\)\\([ \t]+:[[:alnum:]_@#%:]+:\\)?[ \t]*$"))
 			   (setq level (org-reduced-level
 					(- (match-end 1) (match-beginning 1))))
 			   (<= level maxlevel))
@@ -1966,10 +1980,22 @@ the currently selected interval size."
     (when block
       (setq cc (org-clock-special-range block nil t)
 	    ts (car cc) te (nth 1 cc) range-text (nth 2 cc)))
-    (if ts (setq ts (org-float-time
-		     (apply 'encode-time (org-parse-time-string ts)))))
-    (if te (setq te (org-float-time
-		     (apply 'encode-time (org-parse-time-string te)))))
+    (cond
+     ((numberp ts)
+      ;; If ts is a number, it's an absolute day number from org-agenda.
+      (destructuring-bind (month day year) (calendar-gregorian-from-absolute ts)
+	(setq ts (org-float-time (encode-time 0 0 0 day month year)))))
+     (ts
+      (setq ts (org-float-time
+		(apply 'encode-time (org-parse-time-string ts))))))
+    (cond
+     ((numberp te)
+      ;; Likewise for te.
+      (destructuring-bind (month day year) (calendar-gregorian-from-absolute te)
+	(setq te (org-float-time (encode-time 0 0 0 day month year)))))
+     (te
+      (setq te (org-float-time
+		(apply 'encode-time (org-parse-time-string te))))))
     (setq p1 (plist-put p1 :header ""))
     (setq p1 (plist-put p1 :step nil))
     (setq p1 (plist-put p1 :block nil))
@@ -2123,7 +2149,7 @@ The details of what will be saved are regulated by the variable
 
 ;;;###autoload
 (defun org-clock-persistence-insinuate ()
-  "Set up hooks for clock persistence"
+  "Set up hooks for clock persistence."
   (add-hook 'org-mode-hook 'org-clock-load)
   (add-hook 'kill-emacs-hook 'org-clock-save))
 

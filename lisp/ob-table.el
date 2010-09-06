@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -54,15 +54,16 @@
 (require 'ob)
 
 (defun org-babel-table-truncate-at-newline (string)
-  "If STRING ends in a newline character, then remove the newline
+  "Replace newline character with ellipses.
+If STRING ends in a newline character, then remove the newline
 character and replace it with ellipses."
   (if (and (stringp string) (string-match "[\n\r]" string))
       (concat (substring string 0 (match-beginning 0)) "...")
     string))
 
 (defmacro sbe (source-block &rest variables)
-  "Return the results of calling SOURCE-BLOCK assigning every
-variable in VARIABLES.  Each element of VARIABLES should be a two
+  "Return the results of calling SOURCE-BLOCK with VARIABLES.
+Each element of VARIABLES should be a two
 element list, whose first element is the name of the variable and
 second element is a string of its value.  The following call to
 `sbe' would be equivalent to the following source code block.
@@ -78,13 +79,25 @@ references to source-code blocks, to force interpretation of a
 cell's value as a string, prefix the identifier with two \"$\"s
 rather than a single \"$\" (i.e. \"$$2\" instead of \"$2\" in the
 example above."
-  (let ((variables (mapcar
-                    (lambda (var)
-                      (if (and (= 3 (length var)) (eq (nth 1 var) '$))
-                          (list (car var) (format "\"%s\"" (last var)))
-                        var))
-                    variables)))
-    (unless (stringp source-block) (setq source-block (symbol-name source-block)))
+  (let* (quote
+	 (variables (mapcar
+		     (lambda (var)
+		       ;; ensure that all cells prefixed with $'s are strings
+		       (cons (car var)
+			     (delq nil
+				   (mapcar
+				    (lambda (el)
+				      (if (eq '$ el)
+					  (setq quote t)
+					(prog1
+					    (if quote
+						(format "\"%s\"" el)
+					      (org-babel-clean-text-properties el))
+					  (setq quote nil))))
+				    (cdr var)))))
+		     variables)))
+    (unless (stringp source-block)
+      (setq source-block (symbol-name source-block)))
     (org-babel-table-truncate-at-newline ;; org-table cells can't be multi-line
      (if (and source-block (> (length source-block) 0))
          (let ((params
@@ -92,9 +105,14 @@ example above."
                         (concat ":var results="
                                 ,source-block
                                 "("
-                                (mapconcat (lambda (var-spec)
-                                             (format "%S=%s" (nth 0 var-spec) (nth 1 var-spec)))
-                                           ',variables ", ")
+                                (mapconcat
+				 (lambda (var-spec)
+				   (if (> (length (cdr var-spec)) 1)
+				       (format "%S='%S"
+					       (car var-spec) (mapcar #'read (cdr var-spec)))
+				     (format "%S=%s"
+					     (car var-spec) (cadr var-spec))))
+				 ',variables ", ")
                                 ")")))))
            (org-babel-execute-src-block
             nil (list "emacs-lisp" "results"

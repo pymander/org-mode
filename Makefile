@@ -133,6 +133,7 @@ LISPF      = 	org.el			\
 		ob-dot.el		\
 		ob-mscgen.el		\
 		ob-latex.el		\
+		ob-ledger.el		\
 		ob-python.el		\
 		ob-sql.el		\
 		ob-asymptote.el		\
@@ -146,7 +147,11 @@ LISPF      = 	org.el			\
 		ob-css.el		\
 		ob-gnuplot.el		\
 		ob-octave.el		\
-		ob-screen.el
+		ob-screen.el		\
+		ob-plantuml.el		\
+		ob-org.el		\
+		ob-js.el		\
+		ob-scheme.el
 
 LISPFILES0  = $(LISPF:%=lisp/%)
 LISPFILES   = $(LISPFILES0) lisp/org-install.el
@@ -164,8 +169,7 @@ INFOFILES   = doc/org
 SHELL = /bin/sh
 
 # Additional distribution files
-DISTFILES_extra=  Makefile ChangeLog request-assign-future.txt contrib
-DISTFILES_xemacs=  xemacs/noutline.el xemacs/ps-print-invisible.el xemacs/README
+DISTFILES_extra=  Makefile request-assign-future.txt contrib
 
 default: $(ELCFILES) $(ELCBFILES)
 
@@ -204,10 +208,6 @@ install-info: $(INFOFILES)
 install-info-debian: $(INFOFILES)
 	$(INSTALL_INFO) --infodir=$(infodir) $(INFOFILES)
 
-install-noutline: xemacs/noutline.elc
-	if [ ! -d $(lispdir) ]; then $(MKDIR) $(lispdir); else true; fi ;
-	$(CP) xemacs/noutline.el xemacs/noutline.elc $(lispdir)
-
 autoloads: lisp/org-install.el
 
 lisp/org-install.el: $(LISPFILES0) Makefile
@@ -218,8 +218,6 @@ lisp/org-install.el: $(LISPFILES0) Makefile
 		--eval '(insert "\n(provide (quote org-install))\n")' \
 		--eval '(save-buffer)'
 	mv org-install.el lisp
-
-xemacs/noutline.elc: xemacs/noutline.el
 
 doc/org: doc/org.texi
 	(cd doc; $(MAKEINFO) --no-split org.texi -o org)
@@ -272,6 +270,42 @@ pdf:	doc/org.pdf doc/orgguide.pdf
 
 card:	doc/orgcard.pdf doc/orgcard_letter.pdf doc/orgcard.txt
 
+testrelease:
+	git checkout -b testrelease maint
+	git merge -s recursive -X theirs master
+	UTILITIES/set-version.pl testing
+	git commit -a -m "Release testing"
+	make distfile TAG=testversion
+	make cleanrel
+	rm -rf org-testversion*
+	git reset --hard
+	git checkout master
+	git branch -D testrelease
+
+release:
+	git checkout maint
+	git merge -s recursive -X theirs master
+	UTILITIES/set-version.pl $(TAG)
+	git commit -a -m "Release $(TAG)"
+	make relup TAG=$(TAG)
+	make cleanrel
+	rm -rf org-$(TAG)
+	rm org-$(TAG)*.zip
+	rm org-$(TAG)*.tar.gz
+	make pushreleasetag TAG=$(TAG)
+	git push origin maint
+	git checkout master
+	git merge -s ours maint
+	UTILITIES/set-version.pl -o $(TAG)
+	git commit -a -m "Update website to show $(TAG) as current release"
+	git push
+	make updateweb
+
+relup:
+	${MAKE} makerelease
+	${MAKE} upload_release
+	${MAKE} upload_manual
+
 distfile:
 	@if [ "X$(TAG)" = "X" ]; then echo "*** No tag ***"; exit 1; fi
 	touch doc/org.texi doc/orgcard.tex # force update
@@ -281,7 +315,6 @@ distfile:
 	${MAKE} lisp/org-install.el
 	rm -rf org-$(TAG) org-$(TAG).zip
 	$(MKDIR) org-$(TAG)
-	$(MKDIR) org-$(TAG)/xemacs
 	$(MKDIR) org-$(TAG)/doc
 	$(MKDIR) org-$(TAG)/lisp
 	cp -r $(LISPFILES) org-$(TAG)/lisp
@@ -289,11 +322,10 @@ distfile:
 	cp -r $(DISTFILES_extra) org-$(TAG)/
 	cp -r README_DIST org-$(TAG)/README
 	cp -r ORGWEBPAGE/Changes.org org-$(TAG)/
-	cp -r $(DISTFILES_xemacs) org-$(TAG)/xemacs/
 	zip -r org-$(TAG).zip org-$(TAG)
 	gtar zcvf org-$(TAG).tar.gz org-$(TAG)
 
-release:
+makerelease:
 	@if [ "X$(TAG)" = "X" ]; then echo "*** No tag ***"; exit 1; fi
 	${MAKE} distfile
 	${MAKE} doc
@@ -304,6 +336,7 @@ release:
 	$(MKDIR) RELEASEDIR
 	cp org-$(TAG).zip org-$(TAG).tar.gz RELEASEDIR
 	cp doc/org.pdf doc/orgcard.pdf doc/org.texi doc/org.html RELEASEDIR
+	cp doc/org_dual_license.texi RELEASEDIR
 	cp doc/orgguide.pdf doc/orgcard.txt RELEASEDIR
 	cp RELEASEDIR/org-$(TAG).zip    RELEASEDIR/org.zip
 	cp RELEASEDIR/org-$(TAG).tar.gz RELEASEDIR/org.tar.gz
@@ -315,17 +348,15 @@ upload_manual:
 	rsync -avuz --delete doc/manual/ cdominik@orgmode.org:orgmode.org/manual/
 	rsync -avuz --delete doc/guide/ cdominik@orgmode.org:orgmode.org/guide/
 
-relup0:
-	${MAKE} release
-	${MAKE} upload_release
+cleanall:
+	${MAKE} clean
+	rm -f lisp/org-install.el
 
-relup:
-	${MAKE} release
-	${MAKE} upload_release
-	${MAKE} upload_manual
-
-db:
-	grep -e '(debug)' lisp/*el
+clean:
+	${MAKE} cleanelc
+	${MAKE} cleandoc
+	${MAKE} cleanrel
+	rm -f *~ */*~ */*/*~
 
 cleancontrib:
 	find contrib -name \*~ -exec rm {} \;
@@ -341,18 +372,8 @@ cleandoc:
 
 cleanrel:
 	rm -rf RELEASEDIR
-	rm -rf org-6.*
-	rm -rf org-6*zip org-6*tar.gz
-
-clean:
-	${MAKE} cleanelc
-	${MAKE} cleandoc
-	${MAKE} cleanrel
-	rm -f *~ */*~ */*/*~
-
-cleanall:
-	${MAKE} clean
-	rm -f lisp/org-install.el
+	rm -rf org-7.*
+	rm -rf org-7*zip org-7*tar.gz
 
 .el.elc:
 	$(ELC) $<
@@ -368,9 +389,6 @@ pushtag:
 pushreleasetag:
 	git-tag -m "Adding release tag" -a release_$(TAG)
 	git-push git+ssh://repo.or.cz/srv/git/org-mode.git release_$(TAG)
-
-dummy:
-	echo ${prefix}
 
 # Dependencies
 

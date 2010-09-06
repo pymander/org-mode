@@ -5,7 +5,7 @@
 ;; Author: Jan Böcker <jan.boecker at jboecker dot de>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 6.36trans
+;; Version: 7.01trans
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -46,8 +46,11 @@
 
 (require 'org)
 
-(declare-function doc-view-goto-page "doc-view" (page))
-(declare-function doc-view-current-page "doc-view"  (&optional win))
+(declare-function doc-view-goto-page "ext:doc-view" (page))
+(declare-function image-mode-window-get "ext:image-mode"
+		  (prop &optional winprops))
+
+(autoload 'doc-view-goto-page "doc-view")
 
 (org-add-link-type "docview" 'org-docview-open)
 (add-hook 'org-store-link-functions 'org-docview-store-link)
@@ -62,11 +65,11 @@
       )))
 
 (defun org-docview-store-link ()
-  "Store a link to a docview buffer"
+  "Store a link to a docview buffer."
   (when (eq major-mode 'doc-view-mode)
     ;; This buffer is in doc-view-mode
     (let* ((path buffer-file-name)
-	   (page (doc-view-current-page))
+	   (page (image-mode-window-get 'page))
 	   (link (concat "docview:" path "::" (number-to-string page)))
 	   (description ""))
       (org-store-link-props
@@ -75,11 +78,16 @@
        :description path))))
 
 (defun org-docview-complete-link ()
-  "Use the existing file name completion for file: links to get the file name,
-   then ask the user for the page number and append it."
+  "Use the existing file name completion for file.
+Links to get the file name, then ask the user for the page number
+and append it."
   (concat (replace-regexp-in-string "^file:" "docview:" (org-file-complete-link))
 	  "::"
 	  (read-from-minibuffer "Page:" "1")))
 
 
 (provide 'org-docview)
+
+;; arch-tag: dd147a78-cce1-481b-b40a-15869417debe
+
+;;; org-docview.el ends here

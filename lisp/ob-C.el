@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -83,14 +83,14 @@ header arguments (calls `org-babel-C-expand')."
 (defun org-babel-C-execute (body params)
   "This function should only be called by `org-babel-execute:C'
 or `org-babel-execute:c++'."
-  (message "executing C source code block")
   (let* ((processed-params (org-babel-process-params params))
-         (tmp-src-file (make-temp-file "org-babel-C-src" nil
-                                       (cond
-					((equal org-babel-c-variant 'c) ".c")
-					((equal org-babel-c-variant 'cpp) ".cpp"))))
-         (tmp-bin-file (make-temp-file "org-babel-C-bin"))
-         (tmp-out-file (make-temp-file "org-babel-C-out"))
+         (tmp-src-file (org-babel-temp-file
+			"C-src-"
+			(cond
+			 ((equal org-babel-c-variant 'c) ".c")
+			 ((equal org-babel-c-variant 'cpp) ".cpp"))))
+         (tmp-bin-file (org-babel-temp-file "C-bin-"))
+         (tmp-out-file (org-babel-temp-file "C-out-"))
          (cmdline (cdr (assoc :cmdline params)))
          (flags (cdr (assoc :flags params)))
          (full-body (org-babel-C-expand body params))
@@ -106,16 +106,20 @@ or `org-babel-execute:c++'."
 		     (mapconcat 'identity
 				(if (listp flags) flags (list flags)) " ")
 		     tmp-src-file) ""))))
-    (org-babel-reassemble-table
-     (org-babel-read
-      (org-babel-trim
+    ((lambda (results)
+       (org-babel-reassemble-table
+	(if (member "vector" (nth 2 processed-params))
+	    (let ((tmp-file (org-babel-temp-file "c-")))
+	      (with-temp-file tmp-file (insert results))
+	      (org-babel-import-elisp-from-file tmp-file))
+	  (org-babel-read results))
+	(org-babel-pick-name
+	 (nth 4 processed-params) (cdr (assoc :colnames params)))
+	(org-babel-pick-name
+	 (nth 5 processed-params) (cdr (assoc :rownames params)))))
+     (org-babel-trim
        (org-babel-eval
-	(concat tmp-bin-file (if cmdline (concat " " cmdline) "")) "")))
-     (org-babel-pick-name
-      (nth 4 processed-params) (cdr (assoc :colnames params)))
-     (org-babel-pick-name
-      (nth 5 processed-params) (cdr (assoc :rownames params))))))
-
+	(concat tmp-bin-file (if cmdline (concat " " cmdline) "")) "")))))
 
 (defun org-babel-C-expand (body params &optional processed-params)
   "Expand a block of C or C++ code with org-babel according to
@@ -128,26 +132,27 @@ it's header arguments."
         (defines (org-babel-read
                   (or (cdr (assoc :defines params))
                       (org-babel-read (org-entry-get nil "defines" t))))))
-    (mapconcat 'identity
-               (list
-                ;; includes
-                (mapconcat
-                 (lambda (inc) (format "#include %s" inc))
-                 (if (listp includes) includes (list includes)) "\n")
-                ;; defines
-                (mapconcat
-                 (lambda (inc) (format "#define %s" inc))
-                 (if (listp defines) defines (list defines)) "\n")
-                ;; variables
-                (mapconcat 'org-babel-C-var-to-C vars "\n")
-                ;; body
-                (if main-p
-                    (org-babel-C-ensure-main-wrap body)
-                  body) "\n") "\n")))
+    (org-babel-trim
+     (mapconcat 'identity
+		(list
+		 ;; includes
+		 (mapconcat
+		  (lambda (inc) (format "#include %s" inc))
+		  (if (listp includes) includes (list includes)) "\n")
+		 ;; defines
+		 (mapconcat
+		  (lambda (inc) (format "#define %s" inc))
+		  (if (listp defines) defines (list defines)) "\n")
+		 ;; variables
+		 (mapconcat 'org-babel-C-var-to-C vars "\n")
+		 ;; body
+		 (if main-p
+		     (org-babel-C-ensure-main-wrap body)
+		   body) "\n") "\n"))))
 
 (defun org-babel-C-ensure-main-wrap (body)
   "Wrap body in a \"main\" function call if none exists."
-  (if (string-match "^[ \t]*[intvod]+[ \t]*main[ \t]*(.*)" body)
+  (if (string-match "^[ \t]*[intvod]+[ \t\n\r]*main[ \t]*(.*)" body)
       body
     (format "int main() {\n%s\n}\n" body)))
 

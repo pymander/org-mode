@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -41,7 +41,8 @@
 (require 'comint)
 (eval-when-compile (require 'cl))
 
-(declare-function tuareg-run-caml "ext:taureg" ())
+(declare-function tuareg-run-caml "ext:tuareg" ())
+(declare-function tuareg-interactive-send-input "ext:tuareg" ())
 
 (add-to-list 'org-babel-tangle-lang-exts '("ocaml" . "ml"))
 
@@ -55,12 +56,12 @@
   (let ((vars (nth 1 (or processed-params (org-babel-process-params params)))))
     (concat
      (mapconcat
-      (lambda (pair) (format "let %s = %s;" (car pair) (cdr pair)))
+      (lambda (pair) (format "let %s = %s;;" (car pair)
+			(org-babel-ocaml-elisp-to-ocaml (cdr pair))))
       vars "\n") "\n" body "\n")))
 
 (defun org-babel-execute:ocaml (body params)
-  "Execute a block of Ocaml code with org-babel."
-  (message "executing ocaml source code block")
+  "Execute a block of Ocaml code with Babel."
   (let* ((processed-params (org-babel-process-params params))
          (vars (nth 1 processed-params))
          (full-body (org-babel-expand-body:ocaml body params processed-params))
@@ -68,18 +69,28 @@
 		   (cdr (assoc :session params)) params))
          (raw (org-babel-comint-with-output
 		  (session org-babel-ocaml-eoe-output t full-body)
-                (insert (concat (org-babel-chomp full-body) " ;;"))
-                (comint-send-input nil t)
-                (insert org-babel-ocaml-eoe-indicator)
-                (comint-send-input nil t))))
+		(insert
+		 (concat
+		  (org-babel-chomp full-body)"\n"org-babel-ocaml-eoe-indicator))
+		(tuareg-interactive-send-input)))
+	 (clean
+	  (car (let ((re (regexp-quote org-babel-ocaml-eoe-output)) out)
+		 (delq nil (mapcar (lambda (line)
+				     (if out
+					 (progn (setq out nil) line)
+				       (when (string-match re line)
+					 (progn (setq out t) nil))))
+				 (mapcar #'org-babel-trim (reverse raw))))))))
     (org-babel-reassemble-table
-     (org-babel-ocaml-parse-output (org-babel-trim (car raw)))
-     (org-babel-pick-name (nth 4 processed-params) (cdr (assoc :colnames params)))
-     (org-babel-pick-name (nth 5 processed-params) (cdr (assoc :rownames params))))))
+     (org-babel-ocaml-parse-output (org-babel-trim clean))
+     (org-babel-pick-name
+      (nth 4 processed-params) (cdr (assoc :colnames params)))
+     (org-babel-pick-name
+      (nth 5 processed-params) (cdr (assoc :rownames params))))))
 
 (defvar tuareg-interactive-buffer-name)
 (defun org-babel-prep-session:ocaml (session params)
-  "Prepare SESSION according to the header arguments specified in PARAMS."
+  "Prepare SESSION according to the header arguments in PARAMS."
   (require 'tuareg)
   (let ((tuareg-interactive-buffer-name (if (and (not (string= session "none"))
                                                  (not (string= session "default"))
@@ -89,9 +100,15 @@
     (save-window-excursion (tuareg-run-caml)
                            (get-buffer tuareg-interactive-buffer-name))))
 
+(defun org-babel-ocaml-elisp-to-ocaml (val)
+  "Return a string of ocaml code which evaluates to VAL."
+  (if (listp val)
+      (concat "[|" (mapconcat #'org-babel-ocaml-elisp-to-ocaml val "; ") "|]")
+    (format "%S" val)))
+
 (defun org-babel-ocaml-parse-output (output)
-  "Parse OUTPUT where OUTPUT is string output from an ocaml
-process."
+  "Parse OUTPUT.
+OUTPUT is string output from an ocaml process."
   (let ((regexp "%s = \\(.+\\)$"))
     (cond
      ((string-match (format regexp "string") output)
@@ -106,7 +123,8 @@ process."
      (t (message "don't recognize type of %s" output) output))))
 
 (defun org-babel-ocaml-read-list (results)
-  "If the results look like a table, then convert them into an
+  "Convert RESULTS into an elisp table or string.
+If the results look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
   (org-babel-read
    (if (and (stringp results) (string-match "^\\[.+\\]$" results))
@@ -119,16 +137,18 @@ Emacs-lisp table, otherwise return the results as a string."
      results)))
 
 (defun org-babel-ocaml-read-array (results)
-  "If the results look like a table, then convert them into an
+  "Convert RESULTS into an elisp table or string.
+If the results look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
   (org-babel-read
    (if (and (stringp results) (string-match "^\\[.+\\]$" results))
        (org-babel-read
-        (replace-regexp-in-string
-         "\\[|" "(" (replace-regexp-in-string
-                    "|\\]" ")" (replace-regexp-in-string
-                               "; " " " (replace-regexp-in-string
-                                         "'" "\"" results)))))
+	(concat
+	 "'" (replace-regexp-in-string
+	      "\\[|" "(" (replace-regexp-in-string
+			  "|\\]" ")" (replace-regexp-in-string
+				      "; " " " (replace-regexp-in-string
+						"'" "\"" results))))))
      results)))
 
 (provide 'ob-ocaml)

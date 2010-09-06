@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte, Dan Davison
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.01trans
 
 ;; This file is part of GNU Emacs.
 
@@ -41,7 +41,7 @@
 ;; same file would be
 
 ;;  #+TBLNAME: sandbox
-;;  | 1 |       2 | 3 |
+;;  | 1 |         2 | 3 |
 ;;  | 4 | org-babel | 6 |
 ;;
 ;;  #+begin_src emacs-lisp :var table=sandbox
@@ -55,10 +55,12 @@
 
 (declare-function org-remove-if-not "org" (predicate seq))
 (declare-function org-at-table-p "org" (&optional table-type))
+(declare-function org-count "org" (CL-ITEM CL-SEQ))
 
 (defun org-babel-ref-variables (params)
-  "Takes a parameter alist, and return an alist of variable
-names, and the emacs-lisp representation of the related value."
+  "Convert PARAMS to variable names and values.
+Takes a parameter alist, and return an alist of variable names,
+and the emacs-lisp representation of the related value."
   (let ((assignments
 	 (delq nil (mapcar (lambda (pair) (if (eq (car pair) :var) (cdr pair))) params)))
 	(others
@@ -69,13 +71,14 @@ names, and the emacs-lisp representation of the related value."
   "[ \f\t\n\r\v]*\\(.+?\\)[ \f\t\n\r\v]*=[ \f\t\n\r\v]*\\(.+\\)[ \f\t\n\r\v]*")
 
 (defun org-babel-ref-parse (assignment &optional params)
-  "Parse a variable ASSIGNMENT in a header argument.  If the
-right hand side of the assignment has a literal value return that
-value, otherwise interpret as a reference to an external resource
-and find it's value using `org-babel-ref-resolve-reference'.
-Return a list with two elements.  The first element of the list
-will be the name of the variable, and the second will be an
-emacs-lisp representation of the value of the variable."
+  "Parse a variable ASSIGNMENT in a header argument.
+If the right hand side of the assignment has a literal value
+return that value, otherwise interpret as a reference to an
+external resource and find it's value using
+`org-babel-ref-resolve-reference'.  Return a list with two
+elements.  The first element of the list will be the name of the
+variable, and the second will be an emacs-lisp representation of
+the value of the variable."
   (if (string-match org-babel-ref-split-regexp assignment)
       (let ((var (match-string 1 assignment))
             (ref (match-string 2 assignment)))
@@ -86,7 +89,8 @@ emacs-lisp representation of the value of the variable."
 		   val)) (org-babel-ref-literal ref))))))
 
 (defun org-babel-ref-literal (ref)
-  "Determine if the right side of a header argument variable
+  "Return the value of REF if it is a literal value.
+Determine if the right side of a header argument variable
 assignment is a literal value or is a reference to some external
 resource.  REF should be a string of the right hand side of the
 assignment.  If REF is literal then return it's value, otherwise
@@ -105,13 +109,10 @@ return nil."
     (let ((case-fold-search t)
           type args new-refere new-referent result lob-info split-file split-ref
           index index-row index-col)
-      ;; if ref is indexed grab the indices -- beware nested indicies
+      ;; if ref is indexed grab the indices -- beware nested indices
       (when (and (string-match "\\[\\(.+\\)\\]" ref)
 		 (let ((str (substring ref 0 (match-beginning 0))))
-		   (= (length (org-remove-if-not
-			       (lambda (el) (equal ?( el)) (string-to-list "((eric))")))
-		      (length (org-remove-if-not
-			       (lambda (el) (equal ?) el)) (string-to-list "((eric))"))))))
+		   (= (org-count ?( str) (org-count ?) str))))
         (setq index (match-string 1 ref))
         (setq ref (substring ref 0 (match-beginning 0))))
       ;; assign any arguments to pass to source block
@@ -173,29 +174,37 @@ return nil."
 	    result))))))
 
 (defun org-babel-ref-index-list (index lis)
-  "Return the subset of LIS indexed by INDEX.  If INDEX is
-separated by ,s then each PORTION is assumed to index into the
-next deepest nesting or dimension.  A valid PORTION can consist
-of either an integer index, or two integers separated by a : in
-which case the entire range is returned."
-  (if (string-match "^,?\\([^,]+\\)" index)
-      (let ((length (length lis))
+  "Return the subset of LIS indexed by INDEX.
+
+Indices are 0 based and negative indices count from the end of
+LIS, so 0 references the first element of LIS and -1 references
+the last.  If INDEX is separated by \",\"s then each \"portion\"
+is assumed to index into the next deepest nesting or dimension.
+
+A valid \"portion\" can consist of either an integer index, two
+integers separated by a \":\" in which case the entire range is
+returned, or an empty string or \"*\" both of which are
+interpreted to mean the entire range and as such are equivalent
+to \"0:-1\"."
+  (if (and (> (length index) 0) (string-match "^\\([^,]*\\),?" index))
+      (let ((ind-re "\\(\\([-[:digit:]]+\\):\\([-[:digit:]]+\\)\\|\*\\)")
+	    (length (length lis))
             (portion (match-string 1 index))
             (remainder (substring index (match-end 0))))
         (flet ((wrap (num) (if (< num 0) (+ length num) num))
-               (open (lis) (if (and (listp lis) (= (length lis) 1)) (car lis) lis)))
+               (open (ls) (if (and (listp ls) (= (length ls) 1)) (car ls) ls)))
           (open
            (mapcar
             (lambda (sub-lis) (org-babel-ref-index-list remainder sub-lis))
-            (if (string-match "\\(\\([-[:digit:]]+\\):\\([-[:digit:]]+\\)\\|\*\\)"
-                              portion)
-                (mapcar (lambda (n) (nth n lis))
-                        (apply 'number-sequence
-                               (if (match-string 2 portion)
-                                   (list
-                                    (wrap (string-to-number (match-string 2 portion)))
-                                    (wrap (string-to-number (match-string 3 portion))))
-                                 (list (wrap 0) (wrap -1)))))
+            (if (or (= 0 (length portion)) (string-match ind-re portion))
+                (mapcar
+		 (lambda (n) (nth n lis))
+		 (apply 'number-sequence
+			(if (and (> (length portion) 0) (match-string 2 portion))
+			    (list
+			     (wrap (string-to-number (match-string 2 portion)))
+			     (wrap (string-to-number (match-string 3 portion))))
+			  (list (wrap 0) (wrap -1)))))
               (list (nth (wrap (string-to-number portion)) lis)))))))
     lis))
 
@@ -218,9 +227,9 @@ which case the entire range is returned."
 
 (defvar org-bracket-link-regexp)
 (defun org-babel-ref-at-ref-p ()
-  "Return the type of reference located at point or nil if none
-of the supported reference types are found.  Supported reference
-types are tables and source blocks."
+  "Return the type of reference located at point.
+Return nil if none of the supported reference types are found.
+Supported reference types are tables and source blocks."
   (cond ((org-at-table-p) 'table)
         ((looking-at "^[ \t]*#\\+BEGIN_SRC") 'source-block)
         ((looking-at org-bracket-link-regexp) 'file)
