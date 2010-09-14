@@ -443,7 +443,7 @@ special property name."
 
 If optional argument TRYGIT is non-nil, try to obtain date for
 headline using git blame."
-  (let ((id (org-id-get-create))
+  (let ((id (org-id-get))
 	(dtime (or (org-entry-get
 		    nil (org-atom-expand-special-timestamp-property
 			 org-atom-published-property-name))
@@ -461,7 +461,13 @@ headline using git blame."
 				 (or (if trygit
 					 (org-atom-prepare-headline-try-git))
 				     (current-time)))
-				1 -1) "]"))))))
+				1 -1) "]"))))
+    (unless (org-entry-get nil "atom_id")
+      (cond
+       ((and (null id) (memq org-id-method '(uuid uuidgen)))
+	(org-id-get-create))
+       ((or (null id) (not (org-uuidgen-p id)))
+	(org-entry-put nil "atom_id" (org-id-uuid)))))))
 
 (defun org-atom-prepare-headline-try-git ()
   "Return date when headline at point was last modified.
