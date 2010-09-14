@@ -5022,8 +5022,11 @@ will be prompted for."
 				'(display t invisible t intangible t))
 	t)))
 
-(defvar org-src-fontify-natively t
-  "When non-nil, fontify code in code blocks.")
+(defcustom org-src-fontify-natively nil
+  "When non-nil, fontify code in code blocks."
+  :type 'boolean
+  :group 'org-appearance
+  :group 'org-babel)
 
 (defun org-fontify-meta-lines-and-blocks (limit)
   "Fontify #+ lines and blocks, in the correct ways."
@@ -8141,11 +8144,13 @@ It should be a function accepting three arguments:
 
   path    the path of the link, the text after the prefix (like \"http:\")
   desc    the description of the link, if any, nil if there was no description
-  format  the export format, a symbol like `html' or `latex'.
+  format  the export format, a symbol like `html' or `latex' or `ascii'..
 
 The function may use the FORMAT information to return different values
 depending on the format.  The return value will be put literally into
-the exported file.
+the exported file.  If the return value is nil, this means Org should
+do what it normally does with links which do not have EXPORT defined.
+
 Org-mode has a built-in default for exporting links.  If you are happy with
 this default, there is no need to define an export function for the link
 type.  For a simple example of an export function, see `org-bbdb.el'."
@@ -11770,10 +11775,11 @@ EXTRA is additional text that will be inserted into the notes buffer."
 (defun org-skip-over-state-notes ()
   "Skip past the list of State notes in an entry."
   (if (looking-at "\n[ \t]*- State") (forward-char 1))
-  (while (looking-at "[ \t]*- State")
-    (condition-case nil
-	(org-next-item)
-      (error (org-end-of-item)))))
+  (when (org-in-item-p)
+    (let ((limit (org-list-bottom-point)))
+      (while (looking-at "[ \t]*- State")
+	(goto-char (or (org-get-next-item (point) limit)
+		       (org-get-end-of-item limit)))))))
 
 (defun org-add-log-note (&optional purpose)
   "Pop up a window for taking a note, and add this note later at point."
@@ -11818,7 +11824,7 @@ EXTRA is additional text that will be inserted into the notes buffer."
   "Finish taking a log note, and insert it to where it belongs."
   (let ((txt (buffer-string))
 	(note (cdr (assq org-log-note-purpose org-log-note-headings)))
-	lines ind)
+	lines ind bul)
     (kill-buffer (current-buffer))
     (while (string-match "\\`#.*\n[ \t\n]*" txt)
       (setq txt (replace-match "" t t txt)))
@@ -11858,13 +11864,26 @@ EXTRA is additional text that will be inserted into the notes buffer."
 	  (move-marker org-log-note-marker nil)
 	  (end-of-line 1)
 	  (if (not (bolp)) (let ((inhibit-read-only t)) (insert "\n")))
-	  (org-indent-line-function)
-	  (insert "- " (pop lines))
-	  (beginning-of-line 1)
-	  (looking-at "[ \t]*")
-	  (setq ind (concat (match-string 0) "  "))
-	  (end-of-line 1)
-	  (while lines (insert "\n" ind (pop lines)))
+	  (setq ind (save-excursion
+		      (if (org-in-item-p)
+			  (progn
+			    (goto-char (org-list-top-point))
+			    (org-get-indentation))
+			(skip-chars-backward " \r\t\n")
+			(cond
+			 ((and (org-at-heading-p)
+			       org-adapt-indentation)
+			  (1+ (org-current-level)))
+			 ((org-at-heading-p) 0)
+			 (t (org-get-indentation))))))
+	  (setq bul (org-list-bullet-string "-"))
+	  (org-indent-line-to ind)
+	  (insert bul (pop lines))
+	  (let ((ind-body (+ (length bul) ind)))
+	    (while lines
+	      (insert "\n")
+	      (org-indent-line-to ind-body)
+	      (insert (pop lines))))
 	  (message "Note stored")
 	  (org-back-to-heading t)
 	  (org-cycle-hide-drawers 'children)))))
@@ -12102,7 +12121,8 @@ ACTION can be `set', `up', `down', or a character."
 	    (setq new action)
 	  (message "Priority %c-%c, SPC to remove: "
 		   org-highest-priority org-lowest-priority)
-	  (setq new (read-char-exclusive)))
+	  (save-match-data
+	    (setq new (read-char-exclusive))))
 	(if (and (= (upcase org-highest-priority) org-highest-priority)
 		 (= (upcase org-lowest-priority) org-lowest-priority))
 	    (setq new (upcase new)))
@@ -14584,9 +14604,10 @@ user function argument order change dependent on argument order."
 	(list arg2 arg1 arg3))
        ((eq calendar-date-style 'iso)
 	(list arg2 arg3 arg1)))
-    (if (org-bound-and-true-p european-calendar-style)
-	(list arg2 arg1 arg3)
-      (list arg1 arg2 arg3))))
+    (with-no-warnings ;; european-calendar-style is obsolete as of version 23.1
+      (if (org-bound-and-true-p european-calendar-style)
+	  (list arg2 arg1 arg3)
+	(list arg1 arg2 arg3)))))
 
 (defun org-eval-in-calendar (form &optional keepdate)
   "Eval FORM in the calendar window and return to current window.
@@ -18570,7 +18591,7 @@ which make use of the date at the cursor."
      ;; Lists
      ((org-in-item-p)
       (org-beginning-of-item)
-      (looking-at "[ \t]*\\(\\S-+\\)[ \t]*\\(\\[[- X]\\][ \t]*\\|.*? :: \\)?")
+      (looking-at "[ \t]*\\(\\S-+\\)[ \t]*\\(\\(:?\\[@\\(:?start:\\)?[0-9]+\\][ \t]*\\)?\\[[- X]\\][ \t]*\\|.*? :: \\)?")
       (setq bpos (match-beginning 1) tpos (match-end 0)
 	    bcol (progn (goto-char bpos) (current-column))
 	    tcol (progn (goto-char tpos) (current-column))

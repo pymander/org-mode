@@ -669,6 +669,9 @@ function ends."
 	      ;; recompute next-item: last sexp modified list
 	      (goto-char (org-get-next-item (point) bottom))
 	      (org-move-to-column col)))
+	    ;; checkbox update might modify bottom point, so use a
+	    ;; marker here
+	    (setq bottom (copy-marker bottom))
 	    (when checkbox (org-update-checkbox-count-maybe))
 	    (org-list-repair nil top bottom))))
     (goto-char true-pos)
@@ -1112,7 +1115,9 @@ If CHECKBOX is non-nil, add a checkbox next to the bullet.
 Return t when things worked, nil when we are not in an item, or
 item is invisible."
   (unless (or (not (org-in-item-p))
-	      (org-invisible-p))
+	      (save-excursion
+		(goto-char (org-get-item-beginning))
+		(org-invisible-p)))
     (if (save-excursion
 	  (goto-char (org-get-item-beginning))
 	  (org-at-item-timer-p))
@@ -2240,7 +2245,7 @@ Valid parameters PARAMS are
       (while (setq sublist (pop list))
 	(cond ((symbolp sublist) nil)
 	      ((stringp sublist)
-	       (when (string-match "^\\(\\S-+\\)[ \t]+::" sublist)
+	       (when (string-match "^\\(.*\\)[ \t]+::" sublist)
 		 (setq term (org-trim (format (concat dtstart "%s" dtend)
 					      (match-string 1 sublist))))
 		 (setq sublist (concat ddstart
