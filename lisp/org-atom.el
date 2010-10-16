@@ -253,6 +253,8 @@ PROJECT and publishes them as one single atom feed."
   (let* ((project-plist (cdr project))
 	 (dir (file-name-as-directory
 	       (plist-get project-plist :publishing-directory)))
+	 (base-dir (file-name-as-directory
+		    (plist-get project-plist :base-directory)))
 	 (exclude-regexp (plist-get project-plist :exclude))
 	 (include-files (plist-get project-plist :include))
 	 (files (append
@@ -300,8 +302,8 @@ PROJECT and publishes them as one single atom feed."
 				(concat
 				 pub-url
 				 (file-relative-name
-				  (file-name-sans-extension
-				   file) dir)
+				  (file-name-sans-extension file) 
+				  base-dir)
 				 "."
 				 (or
 				  (plist-get
