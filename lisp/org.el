@@ -18740,9 +18740,10 @@ If point is in an inline task, mark that task instead."
 		      (and (org-in-item-p) (goto-char (org-list-top-point)))
 		      (and (not inline-task-p)
 			   (featurep 'org-inlinetask)
-			   (org-inlinetask-in-task-p)))
-      		  (not (looking-at "[ \t]*:END:"))
-      		  (not (looking-at org-drawer-regexp)))
+			   (org-inlinetask-in-task-p)
+			   (or (org-inlinetask-goto-beginning) t)))
+		  (not (looking-at "[ \t]*:END:"))
+		  (not (looking-at org-drawer-regexp)))
       	(beginning-of-line 0))
       (cond
        ;; There was an heading above.
