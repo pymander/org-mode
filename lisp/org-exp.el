@@ -1080,6 +1080,9 @@ on this string to produce the exported version."
       ;; Mark end of lists
       (org-export-mark-list-ending backend)
 
+      ;; Export code blocks
+      (org-export-blocks-preprocess)
+
       ;; Handle source code snippets
       (org-export-replace-src-segments-and-examples backend)
 
@@ -2258,8 +2261,6 @@ in the list) and remove property and value from the list in LISTVAR."
 (defvar org-export-latex-listings-langs) ;; defined in org-latex.el
 (defvar org-export-latex-listings-w-names) ;; defined in org-latex.el
 (defvar org-export-latex-minted-langs) ;; defined in org-latex.el
-(defvar org-export-latex-minted-with-line-numbers) ;; defined in org-latex.el
-
 (defun org-export-format-source-code-or-example
   (backend lang code &optional opts indent caption)
   "Format CODE from language LANG and return it formatted for export.
@@ -2426,8 +2427,7 @@ INDENT was the original indentation of the block."
 				     (format "\n%s $\\equiv$ \n"
 					     (replace-regexp-in-string
 					      "_" "\\\\_" caption)))
-				   (format
-				    "\\begin{minted}[mathescape,%s\nnumbersep=5pt,\nframe=lines,\nframesep=2mm]{%s}\n" (if org-export-latex-minted-with-line-numbers "\nlinenos," "") minted-lang)
+				   (format "\\begin{minted}{%s}\n" minted-lang)
 				   rtn "\\end{minted}\n"))))
 			    (t (concat (car org-export-latex-verbatim-wrap)
 				       rtn (cdr org-export-latex-verbatim-wrap))))

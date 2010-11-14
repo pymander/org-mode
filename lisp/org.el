@@ -1958,7 +1958,7 @@ indicating if the keywords should be interpreted as a sequence of
 action steps, or as different types of TODO items.  The first
 keywords are states requiring action - these states will select a headline
 for inclusion into the global TODO list Org-mode produces.  If one of
-the \"keywords\" is the vertical bat \"|\" the remaining keywords
+the \"keywords\" is the vertical bar, \"|\", the remaining keywords
 signify that no further action is necessary.  If \"|\" is not found,
 the last keyword is treated as the only DONE state of the sequence.
 
@@ -3422,7 +3422,7 @@ After a match, the match groups contain these elements:
 (defcustom org-emphasis-regexp-components
   '(" \t('\"{" "- \t.,:!?;'\")}\\" " \t\r\n,\"'" "." 1)
   "Components used to build the regular expression for emphasis.
-This is a list with 6 entries.  Terminology:  In an emphasis string
+This is a list with five entries.  Terminology:  In an emphasis string
 like \" *strong word* \", we call the initial space PREMATCH, the final
 space POSTMATCH, the stars MARKERS, \"s\" and \"d\" are BORDER characters
 and \"trong wor\" is the body.  The different components in this variable
@@ -5583,14 +5583,17 @@ needs to be inserted at a specific position in the font-lock sequence.")
 (defvar org-l nil)
 (defvar org-f nil)
 (defun org-get-level-face (n)
-  "Get the right face for match N in font-lock matching of headlines."
-  (setq org-l (- (match-end 2) (match-beginning 1) 1))
-  (if org-odd-levels-only (setq org-l (1+ (/ org-l 2))))
-  (setq org-f (nth (% (1- org-l) org-n-level-faces) org-level-faces))
-  (cond
-   ((eq n 1) (if org-hide-leading-stars 'org-hide org-f))
-   ((eq n 2) org-f)
-   (t (if org-level-color-stars-only nil org-f))))
+ "Get the right face for match N in font-lock matching of headlines."
+ (setq org-l (- (match-end 2) (match-beginning 1) 1))
+ (if org-odd-levels-only (setq org-l (1+ (/ org-l 2))))
+ (if org-cycle-level-faces
+     (setq org-f (nth (% (1- org-l) org-n-level-faces) org-level-faces))
+   (setq org-f (nth (1- (min org-l org-n-level-faces)) org-level-faces)))
+ (cond
+  ((eq n 1) (if org-hide-leading-stars 'org-hide org-f))
+  ((eq n 2) org-f)
+  (t (if org-level-color-stars-only nil org-f))))
+
 
 (defun org-get-todo-face (kwd)
   "Get the right face for a TODO keyword KWD.
@@ -10463,6 +10466,7 @@ blocks in the buffer."
   "Update the dynamic block at point.
 This means to empty the block, parse for parameters and then call
 the correct writing function."
+  (interactive)
   (save-window-excursion
     (let* ((pos (point))
 	   (line (org-current-line))
@@ -10504,6 +10508,7 @@ Error if there is no such block at point."
 (defun org-update-all-dblocks ()
   "Update all dynamic blocks in the buffer.
 This function can be used in a hook."
+  (interactive)
   (when (org-mode-p)
     (org-map-dblocks 'org-update-dblock)))
 
@@ -17324,7 +17329,8 @@ This command does many different things, depending on context:
       (if arg
 	  (call-interactively 'org-table-recalculate)
 	(org-table-maybe-recalculate-line))
-      (call-interactively 'org-table-align))
+      (call-interactively 'org-table-align)
+      (orgtbl-send-table 'maybe))
      ((or (org-footnote-at-reference-p)
 	  (org-footnote-at-definition-p))
       (call-interactively 'org-footnote-action))
@@ -19037,8 +19043,6 @@ beyond the end of the headline."
 
 (define-key org-mode-map "\C-a" 'org-beginning-of-line)
 (define-key org-mode-map "\C-e" 'org-end-of-line)
-(define-key org-mode-map [home] 'org-beginning-of-line)
-(define-key org-mode-map [end]  'org-end-of-line)
 
 (defun org-backward-sentence (&optional arg)
   "Go to beginning of sentence, or beginning of table field.

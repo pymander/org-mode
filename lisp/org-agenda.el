@@ -916,6 +916,35 @@ This function makes sure that dates are aligned for easy reading."
     (format "%-10s %2d %s %4d%s"
 	    dayname day monthname year weekstring)))
 
+(defcustom org-agenda-timegrid-use-ampm nil
+  "When set, show AM/PM style timestamps on the timegrid."
+  :group 'org-agenda
+  :type 'boolean)
+
+(defun org-agenda-time-of-day-to-ampm (time)
+  "Convert TIME of a string like '13:45' to an AM/PM style time string."
+  (let* ((hour-number (string-to-number (substring time 0 -3)))
+         (minute (substring time -2))
+         (ampm "am"))
+    (cond
+     ((equal hour-number 12)
+      (setq ampm "pm"))
+     ((> hour-number 12)
+      (setq ampm "pm")
+      (setq hour-number (- hour-number 12))))
+    (concat
+     (if org-agenda-time-leading-zero
+	 (format "%02d" hour-number)
+       (format "%02s" (number-to-string hour-number)))
+     ":" minute ampm)))
+
+(defun org-agenda-time-of-day-to-ampm-maybe (time)
+  "Conditionally convert TIME to AM/PM format
+based on `org-agenda-timegrid-use-ampm'"
+  (if org-agenda-timegrid-use-ampm
+      (org-agenda-time-of-day-to-ampm time)
+    time))
+
 (defcustom org-agenda-time-leading-zero nil
   "Non-nil means use leading zero for military times in agenda.
 For example, 9:30am would become 09:30 rather than  9:30."
@@ -1432,6 +1461,14 @@ determines if it is a foreground or a background color."
 			(choice    :tag "Face    "
 				   (string :tag "Color")
 				   (sexp :tag "Face"))))))
+
+(defcustom org-agenda-day-face-function nil
+  "Function called to determine what face should be used to display a day.
+The only argument passed to that function is the day. It should
+returns a face, or nil if does not want to specify a face and let
+the normal rules apply."
+  :group 'org-agenda-line-format
+  :type 'function)
 
 (defcustom org-agenda-category-icon-alist nil
   "Alist of category icon to be displayed in agenda views.
@@ -3106,6 +3143,16 @@ no longer in use."
 		      (progn (delete-overlay o) t)))
 		(overlays-in (point-min) (point-max)))))
 
+(defun org-agenda-get-day-face (date)
+  "Return the face DATE should be displayed with."
+  (or (and (functionp org-agenda-day-face-function)
+	   (funcall org-agenda-day-face-function date))
+      (cond ((org-agenda-todayp date)
+	     'org-agenda-date-today)
+	    ((member (calendar-day-of-week date) org-agenda-weekend-days)
+	     'org-agenda-date-weekend)
+	    (t 'org-agenda-date))))
+
 ;;; Agenda timeline
 
 (defvar org-agenda-only-exact-dates nil) ; dynamically scoped
@@ -3133,10 +3180,10 @@ dates."
 					 org-timeline-show-empty-dates))
 	 (org-deadline-warning-days 0)
 	 (org-agenda-only-exact-dates t)
-	 (today (time-to-days (current-time)))
+	 (today (org-agenda-today))
 	 (past t)
 	 args
-	 s e rtn d emptyp wd)
+	 s e rtn d emptyp)
     (setq org-agenda-redo-command
 	  (list 'progn
 		(list 'org-switch-to-buffer-other-window (current-buffer))
@@ -3170,8 +3217,7 @@ dates."
 	    (progn
 	      (setq past nil)
 	      (insert (make-string 79 ?-) "\n")))
-	(setq date (calendar-gregorian-from-absolute d)
-	      wd (calendar-day-of-week date))
+	(setq date (calendar-gregorian-from-absolute d))
 	(setq s (point))
 	(setq rtn (and (not emptyp)
 		       (apply 'org-agenda-get-day-entries entry
@@ -3185,9 +3231,7 @@ dates."
 		 (funcall org-agenda-format-date date))
 	       "\n")
 	      (put-text-property s (1- (point)) 'face
-				 (if (member wd org-agenda-weekend-days)
-				     'org-agenda-date-weekend
-				   'org-agenda-date))
+				 (org-agenda-get-day-face date))
 	      (put-text-property s (1- (point)) 'org-date-line t)
 	      (put-text-property s (1- (point)) 'org-agenda-date-header t)
 	      (if (equal d today)
@@ -3213,7 +3257,7 @@ When EMPTY is non-nil, also include days without any entries."
 	     (if inactive org-ts-regexp-both org-ts-regexp)))
 	 dates dates1 date day day1 day2 ts1 ts2)
     (if force-today
-	(setq dates (list (time-to-days (current-time)))))
+	(setq dates (list (org-agenda-today))))
     (save-excursion
       (goto-char beg)
       (while (re-search-forward re end t)
@@ -3324,9 +3368,7 @@ given in `org-agenda-start-on-weekday'."
 	      org-agenda-start-on-weekday nil))
 	 (thefiles (org-agenda-files nil 'ifmode))
 	 (files thefiles)
-	 (today (time-to-days
-		 (time-subtract (current-time)
-				(list 0 (* 3600 org-extend-today-until) 0))))
+	 (today (org-agenda-today))
 	 (sd (or start-day today))
 	 (start (if (or (null org-agenda-start-on-weekday)
 			(< org-agenda-ndays 7))
@@ -3339,7 +3381,7 @@ given in `org-agenda-start-on-weekday'."
 	 (day-numbers (list start))
 	 (day-cnt 0)
 	 (inhibit-redisplay (not debug-on-error))
-	 s e rtn rtnall file date d start-pos end-pos todayp nd wd
+	 s e rtn rtnall file date d start-pos end-pos todayp nd
 	 clocktable-start clocktable-end filter)
     (setq org-agenda-redo-command
 	  (list 'org-agenda-list (list 'quote include-all) start-day ndays))
@@ -3397,7 +3439,6 @@ given in `org-agenda-start-on-weekday'."
       (org-agenda-mark-header-line s))
     (while (setq d (pop day-numbers))
       (setq date (calendar-gregorian-from-absolute d)
-	    wd (calendar-day-of-week date)
 	    s (point))
       (if (or (setq todayp (= d today))
 	      (and (not start-pos) (= d sd)))
@@ -3441,15 +3482,12 @@ given in `org-agenda-start-on-weekday'."
 	       (funcall org-agenda-format-date date))
 	     "\n")
 	    (put-text-property s (1- (point)) 'face
-			       (if (member wd org-agenda-weekend-days)
-				   'org-agenda-date-weekend
-				 'org-agenda-date))
+			       (org-agenda-get-day-face date))
 	    (put-text-property s (1- (point)) 'org-date-line t)
 	    (put-text-property s (1- (point)) 'org-agenda-date-header t)
 	    (put-text-property s (1- (point)) 'org-day-cnt day-cnt)
 	    (when todayp
-	      (put-text-property s (1- (point)) 'org-today t)
-	      (put-text-property s (1- (point)) 'face 'org-agenda-date-today))
+	      (put-text-property s (1- (point)) 'org-today t))
 	    (if rtnall (insert
 			(org-finalize-agenda-entries
 			 (org-agenda-add-time-grid-maybe
@@ -3773,7 +3811,7 @@ for a keyword.  A numeric prefix directly selects the Nth keyword in
   (org-set-sorting-strategy 'todo)
   (org-prepare-agenda "TODO")
   (if (and (stringp arg) (not (string-match "\\S-" arg))) (setq arg nil))
-  (let* ((today (time-to-days (current-time)))
+  (let* ((today (org-agenda-today))
 	 (date (calendar-gregorian-from-absolute today))
 	 (kwds org-todo-keywords-for-agenda)
 	 (completion-ignore-case t)
@@ -5100,8 +5138,15 @@ Any match of REMOVE-RE will be removed from TXT."
       (if noprefix
 	  (setq rtn txt)
 	;; Prepare the variables needed in the eval of the compiled format
-	(setq time (cond (s2 (concat s1 "-" s2))
-			 (s1 (concat s1 "......"))
+	(setq time (cond (s2 (concat
+			      (org-agenda-time-of-day-to-ampm-maybe s1)
+			      "-" (org-agenda-time-of-day-to-ampm-maybe s2)
+			      (if org-agenda-timegrid-use-ampm " ")))
+			 (s1 (concat
+			      (org-agenda-time-of-day-to-ampm-maybe s1)
+			      (if org-agenda-timegrid-use-ampm
+				  "........ "
+				"......")))
 			 (t ""))
 	      extra (or (and (not habitp) extra) "")
 	      category (if (symbolp category) (symbol-name category) category)
@@ -5902,9 +5947,7 @@ Negative selection means regexp must not match for selection of an entry."
     (cond
      (tdpos (goto-char tdpos))
      ((eq org-agenda-type 'agenda)
-      (let* ((sd (time-to-days
-		  (time-subtract (current-time)
-				 (list 0 (* 3600 org-extend-today-until) 0))))
+      (let* ((sd (org-agenda-today))
 	     (comp (org-agenda-compute-time-span sd org-agenda-span))
 	     (org-agenda-overriding-arguments org-agenda-last-arguments))
 	(setf (nth 1 org-agenda-overriding-arguments) (car comp))
@@ -6712,8 +6755,7 @@ the same tree node, and the headline of the tree node in the Org-mode file."
 	 (buffer (marker-buffer marker))
 	 (pos (marker-position marker))
 	 (hdmarker (org-get-at-bol 'org-hd-marker))
-	 (todayp (equal (org-get-at-bol 'day)
-			(time-to-days (current-time))))
+	 (todayp (org-agenda-todayp (org-get-at-bol 'day)))
 	 (inhibit-read-only t)
 	 org-agenda-headline-snapshot-before-repeat newhead just-one)
     (org-with-remote-undo buffer
@@ -7862,6 +7904,9 @@ belonging to the \"Work\" category."
   (let* ((cnt 0) ; count added events
 	 (org-agenda-new-buffers nil)
 	 (org-deadline-warning-days 0)
+	 ;; Do not use `org-agenda-today' here because appt only takes
+	 ;; time and without date as argument, so it may pass wrong
+	 ;; information otherwise
 	 (today (org-date-to-gregorian
 		 (time-to-days (current-time))))
 	 (org-agenda-restrict nil)
@@ -7902,16 +7947,18 @@ belonging to the \"Work\" category."
 	(message "No event to add")
       (message "Added %d event%s for today" cnt (if (> cnt 1) "s" "")))))
 
+(defun org-agenda-today ()
+  "Return today date, considering `org-extend-today-until'."
+  (time-to-days
+   (time-subtract (current-time)
+		  (list 0 (* 3600 org-extend-today-until) 0))))
+
 (defun org-agenda-todayp (date)
   "Does DATE mean today, when considering `org-extend-today-until'?"
-  (let (today h)
-    (if (listp date) (setq date (calendar-absolute-from-gregorian date)))
-    (setq today (calendar-absolute-from-gregorian (calendar-current-date)))
-    (setq h (nth 2 (decode-time (current-time))))
-    (or (and (>= h org-extend-today-until)
-	     (= date today))
-	(and (< h org-extend-today-until)
-	     (= date (1- today))))))
+  (let ((today (org-agenda-today))
+	(date (if (and date (listp date)) (calendar-absolute-from-gregorian date)
+		date)))
+    (eq date today)))
 
 (provide 'org-agenda)
 
